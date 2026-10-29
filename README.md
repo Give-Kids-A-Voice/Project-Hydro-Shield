@@ -22,7 +22,18 @@ The application works by listening to constant, high-frequency local **Bluetooth
 ## 4. Part of a Holistic Vision
 Project Hydro-Shield sits directly alongside our communication initiative (**Dynamic Horizon AAC**) under the Give Kids A Voice organization umbrella. Together, we are writing the missing infrastructure to support, protect, and liberate the massive, rapidly expanding population of non-verbal autistic children and adults whom traditional societal infrastructures have completely abandoned.
 
-## 5. Active Repositories Tasks
+## 5. What works today
+- **Water Hazard Map** (`docs/`, live on GitHub Pages): enter an address, see every pond, retention basin, canal, ditch, pool and fountain within 300 m to 1.2 km, outlined on a map and ranked by distance to the water's edge. Uses free OpenStreetMap data. No API key.
+- **`scripts/hazard_scan.py`**: the same scan for the home hub. Outputs GeoJSON. `python3 scripts/hazard_scan.py "your address" > hazards.geojson`
+- `scripts/hydro_shield_scanner.py` is the original Google Places prototype. Places only returns named points, so it misses most unnamed retention ponds, ditches and backyard pools; the OpenStreetMap scan replaces it.
+
+### Design notes
+- **Two layers.** Layer 1 is the exit alarm: a wearable BLE tag leaves range of the home hub, or a door sensor trips, and every speaker and phone alarms within seconds. Layer 2 is outdoor tracking: a GPS wearable streams position and the hub reports distance and heading to the nearest mapped water.
+- **Fail loud.** Dead tag battery, a tag that stops reporting, or a hub that loses power must alarm, never go quiet.
+- **Home Assistant** runs the alarm side on the Pi, since it already speaks to Sonos, Google, Alexa, TVs and phones.
+- Not a substitute for supervision, door locks and alarms, or swim lessons.
+
+## 6. Active Repositories Tasks
 We need systems engineers, IoT developers, network specialists, and geospatial programmer experts to jump into our **Issues** tab to claim modular challenges:
 - **Module A:** Local BLE/UWB RSSI signal tracking & distance approximation metrics.
 - **Module B:** Google Maps API Integration scripts for automated local property hydrology scanning.

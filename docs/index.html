@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Hydro-Shield Water Map</title>
+<meta name="description" content="Find every pond, canal, ditch and pool near a home. Free tool from Give Kids A Voice's Project Hydro-Shield.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+/* Layout: a field survey sheet. Address bar on top, map and the ranked hazard list side by side, nearest water first. */
+:root{
+  --bg:#f2f6f7; --surface:#ffffff; --line:#cfdbde; --fg:#0f2a33; --muted:#4f6a72;
+  --water:#1f78b4; --water-fill:#a6cee3; --pool:#11a5b8; --danger:#c0362c; --warn:#b26a00; --ok:#2d7a4b;
+  --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0c181c; --surface:#122329; --line:#24404a; --fg:#e3eef0; --muted:#94b0b8;
+  --water:#6db4e6; --water-fill:#2f6f99; --pool:#43c7d6; --danger:#ff7a6e; --warn:#f0a83a; --ok:#6cc792; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.5 var(--body)}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-direction:column;gap:6px}
+.eyebrow{font:500 .78rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--water)}
+h1{margin:0;font-size:clamp(1.6rem,4vw,2.3rem);line-height:1.1;text-wrap:balance}
+.lede{margin:0;max-width:65ch;color:var(--muted)}
+form{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+input[type=text]{flex:1 1 280px;min-width:0;font:inherit;padding:11px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
+select{font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
+button{font:700 1rem var(--body);padding:11px 18px;border-radius:8px;border:0;background:var(--water);color:#fff;cursor:pointer}
+button.ghost{background:transparent;color:var(--water);border:1px solid var(--water)}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid var(--pool);outline-offset:2px}
+.status{font-size:.92rem;color:var(--muted);min-height:1.4em}
+.status.err{color:var(--danger)}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+#map{height:min(70vh,620px);min-height:360px;border-radius:12px;border:1px solid var(--line);background:var(--surface)}
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.summary{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.summary div{display:flex;flex-direction:column}
+.summary b{font:500 1.5rem var(--mono);font-variant-numeric:tabular-nums}
+.summary small{color:var(--muted);font-size:.8rem}
+.summary .near b{color:var(--danger)}
+ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:min(55vh,470px);overflow:auto}
+li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:8px;cursor:pointer}
+li:hover,li.on{border-color:var(--water)}
+.sev{width:10px;height:36px;border-radius:3px}
+.sev.s3{background:var(--danger)} .sev.s2{background:var(--warn)} .sev.s1{background:var(--ok)}
+.nm{font-weight:700;overflow-wrap:anywhere}
+.kind{font-size:.82rem;color:var(--muted)}
+.dist{font:500 .95rem var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.dist small{display:block;color:var(--muted);font-size:.75rem}
+.note{font-size:.85rem;color:var(--muted);max-width:70ch}
+.note b{color:var(--fg)}
+footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16px}
+footer a{color:var(--water)}
+.leaflet-container{font-family:var(--body)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Project Hydro-Shield · Give Kids A Voice</span>
+    <h1>Every pond, canal and pool near your home</h1>
+    <p class="lede">Enter a home address. We outline the water within walking distance and rank it by how close the edge is, so you know where to search first if your child wanders.</p>
+  </header>
+
+  <form id="f">
+    <input type="text" id="addr" autocomplete="street-address" placeholder="Street address, city, state" aria-label="Home address" value="Land O' Lakes, FL">
+    <select id="rad" aria-label="Search radius"><option value="300">300 m</option><option value="500" selected>500 m</option><option value="800">800 m</option><option value="1200">1.2 km</option></select>
+    <button type="submit">Map the water</button>
+    <button type="button" class="ghost" id="here">Use map center</button>
+  </form>
+  <div class="status" id="st" role="status" aria-live="polite"></div>
+
+  <div class="grid">
+    <div id="map" role="region" aria-label="Water hazard map"></div>
+    <div class="side">
+      <div class="summary">
+        <div class="near"><b id="s-near">–</b><small>nearest water edge</small></div>
+        <div><b id="s-count">–</b><small>water hazards found</small></div>
+        <div><b id="s-close">–</b><small>within 150 m</small></div>
+      </div>
+      <ol id="list" aria-label="Water hazards, nearest first"></ol>
+      <p class="note"><b>Map data has gaps.</b> Backyard pools and new retention ponds are often missing. Walk your street and add anything you see to OpenStreetMap, and treat this list as a starting point, not a guarantee.</p>
+    </div>
+  </div>
+
+  <footer>
+    <span>Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Address search by Nominatim.</span>
+    <span>Not a substitute for supervision, door alarms or swim lessons.</span>
+    <a href="https://github.com/Give-Kids-A-Voice/Project-Hydro-Shield" target="_blank" rel="noopener">Source on GitHub</a>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="hazards.js"></script>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var css = getComputedStyle(document.documentElement);
+  var C = function (n) { return css.getPropertyValue(n).trim(); };
+  var map = L.map('map', { zoomControl: true }).setView([28.2189, -82.4573], 14);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  var layer = L.layerGroup().addTo(map), shapes = {};
+
+  var OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+  function status(t, err) { var s = $('#st'); s.textContent = t; s.className = 'status' + (err ? ' err' : ''); }
+
+  async function geocode(q) {
+    var r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } });
+    var j = await r.json(); if (!j.length) throw new Error('We could not find that address. Try adding the city and state.');
+    return { lat: +j[0].lat, lon: +j[0].lon, label: j[0].display_name };
+  }
+  async function overpass(lat, lon, rad) {
+    var q = HydroShield.overpassQuery(lat, lon, rad), last;
+    for (var i = 0; i < OVERPASS.length; i++) {
+      try { var r = await fetch(OVERPASS[i], { method: 'POST', body: 'data=' + encodeURIComponent(q) }); if (r.ok) return await r.json(); last = new Error('Map data server busy (' + r.status + ').'); }
+      catch (e) { last = e; }
+    }
+    throw last || new Error('Map data server unreachable.');
+  }
+  function fmt(m) { return m < 1 ? 'at home' : m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1) + ' km'; }
+  function ft(m) { return Math.round(m * 3.281).toLocaleString() + ' ft'; }
+
+  function render(home, rad, hz) {
+    layer.clearLayers(); shapes = {};
+    L.circle([home.lat, home.lon], { radius: rad, color: C('--muted'), weight: 1, dashArray: '4 6', fill: false }).addTo(layer);
+    L.circleMarker([home.lat, home.lon], { radius: 8, color: '#fff', weight: 3, fillColor: C('--danger'), fillOpacity: 1 }).addTo(layer).bindTooltip('Home', { permanent: false });
+    hz.forEach(function (h) {
+      var col = h.cls === 'pool' ? C('--pool') : C('--water');
+      var opts = { color: col, weight: h.line ? 4 : 2, fillColor: h.cls === 'pool' ? C('--pool') : C('--water-fill'), fillOpacity: .45 };
+      var shp = h.line ? L.polyline(h.coords, opts) : L.polygon(h.coords, opts);
+      shp.addTo(layer).bindPopup('<b>' + h.name.replace(/</g, '&lt;') + '</b><br>' + h.kind + '<br>' + fmt(h.dist) + ' from home');
+      L.polyline([[home.lat, home.lon], h.nearest], { color: col, weight: 1, dashArray: '2 4' }).addTo(layer);
+      shapes[h.id] = shp;
+    });
+    var list = $('#list'); list.innerHTML = '';
+    hz.forEach(function (h) {
+      var li = document.createElement('li'); li.tabIndex = 0;
+      li.innerHTML = '<span class="sev s' + h.sev + '"></span><div><div class="nm"></div><div class="kind"></div></div><div class="dist">' + fmt(h.dist) + '<small>' + ft(h.dist) + '</small></div>';
+      li.querySelector('.nm').textContent = h.name; li.querySelector('.kind').textContent = h.kind;
+      var go = function () { document.querySelectorAll('li.on').forEach(function (x) { x.classList.remove('on'); }); li.classList.add('on'); map.fitBounds(shapes[h.id].getBounds().extend([home.lat, home.lon]), { padding: [30, 30], maxZoom: 18 }); shapes[h.id].openPopup(); };
+      li.onclick = go; li.onkeydown = function (e) { if (e.key === 'Enter') go(); };
+      list.appendChild(li);
+    });
+    if (!hz.length) list.innerHTML = '<li style="cursor:default"><span class="sev s1"></span><div>No mapped water in this radius. Check your street in person anyway.</div><span></span></li>';
+    $('#s-near').textContent = hz.length ? fmt(hz[0].dist) : 'none';
+    $('#s-count').textContent = hz.length;
+    $('#s-close').textContent = hz.filter(function (h) { return h.dist <= 150; }).length;
+    map.fitBounds(L.circle([home.lat, home.lon], { radius: rad }).addTo(map).getBounds(), { padding: [10, 10] });
+  }
+
+  async function run(home) {
+    var rad = +$('#rad').value;
+    try {
+      status('Loading water data around ' + (home.label || 'the map center') + '…');
+      var data = await overpass(home.lat, home.lon, rad);
+      var hz = HydroShield.hazards(data, home.lat, home.lon, rad);
+      render(home, rad, hz);
+      status(hz.length + ' water hazards within ' + fmt(rad) + '. Nearest first.');
+    } catch (e) { status(e.message, true); }
+  }
+  $('#f').addEventListener('submit', async function (e) {
+    e.preventDefault(); var q = $('#addr').value.trim(); if (!q) { status('Enter a home address first.', true); return; }
+    try { status('Finding the address…'); var g = await geocode(q); run(g); } catch (err) { status(err.message, true); }
+  });
+  $('#here').onclick = function () { var c = map.getCenter(); run({ lat: c.lat, lon: c.lng, label: 'the map center' }); };
+  map.on('click', function (e) { run({ lat: e.latlng.lat, lon: e.latlng.lng, label: 'the point you clicked' }); });
+  $('#f').requestSubmit();
+})();
+</script>
+</body>
+</html>
