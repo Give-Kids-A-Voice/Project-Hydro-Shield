@@ -94,7 +94,7 @@ footer a{color:var(--water)}
   </div>
 
   <footer>
-    <span>Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records: Pasco County Property Appraiser (public records, refreshed weekly). Address search by Nominatim.</span>
+    <span>Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records: Pasco and Pinellas County Property Appraisers (public records). Address search by Nominatim.</span>
     <span>Not a substitute for supervision, door alarms or swim lessons.</span>
     <a href="https://github.com/Give-Kids-A-Voice/Project-Hydro-Shield" target="_blank" rel="noopener">Source on GitHub</a>
   </footer>
@@ -198,7 +198,7 @@ footer a{color:var(--water)}
     var osm = res[0].status === 'fulfilled' ? res[0].value : { elements: [] };
     var pools = res[1].status === 'fulfilled' ? res[1].value : [];
     var els = osm.elements.slice();
-    els = els.concat(asElements(pools, { prefix: 'cp', tags: function (p) { return { leisure: 'swimming_pool', name: 'Pool (county record)', access: 'private' }; } }));
+    els = els.concat(asElements(pools, { prefix: 'cp', tags: function (p) { return { leisure: 'swimming_pool', name: p[2] === 'spa' ? 'Spa / hot tub (county record)' : 'Pool (county record)', access: 'private' }; } }));
     els = els.concat(asElements(marks(), { prefix: 'mk', tags: function (p) { return p[2] === 'pool' ? { leisure: 'swimming_pool', name: 'Pool you marked' } : { natural: 'water', water: 'pond', name: 'Water you marked' }; } }));
     var hz = HydroShield.hazards({ elements: els }, home.lat, home.lon, rad);
     render(home, rad, hz);
