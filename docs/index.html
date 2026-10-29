@@ -183,6 +183,22 @@ footer a{color:var(--water)}
     }));
     return out;
   }
+  // Pre-built Florida water tiles (weekly from OpenStreetMap). Returns null when no tiles cover the area.
+  async function waterTiles(lat, lon, rad) {
+    var dLat = rad / 110574, dLon = rad / (111320 * Math.cos(lat * Math.PI / 180)), keys = [], els = [], hit = 0, seen = {};
+    for (var y = Math.floor((lat - dLat) * 20); y <= Math.floor((lat + dLat) * 20); y++)
+      for (var x = Math.floor((lon - dLon) * 20); x <= Math.floor((lon + dLon) * 20); x++) keys.push(y + '_' + x);
+    await Promise.all(keys.map(function (k) {
+      return fetch('data/water/' + k + '.json').then(function (r) { if (!r.ok) return []; hit++; return r.json(); }).then(function (a) {
+        a.forEach(function (f) {
+          if (seen[f.i]) return; seen[f.i] = 1;
+          if (f.g.length === 1 && f.g[0].length === 1) els.push({ type: 'node', id: f.i, lat: f.g[0][0][0], lon: f.g[0][0][1], tags: f.t });
+          else els.push({ type: 'relation', id: f.i, tags: f.t, members: f.g.map(function (r) { return { role: 'outer', geometry: r.map(function (p) { return { lat: p[0], lon: p[1] }; }) }; }) });
+        });
+      }).catch(function () {});
+    }));
+    return hit ? { elements: els } : null;
+  }
   var MARK_KEY = 'hydroshield-marked';
   function marks() { try { return JSON.parse(localStorage.getItem(MARK_KEY) || '[]'); } catch (_) { return []; } }
   function saveMarks(m) { try { localStorage.setItem(MARK_KEY, JSON.stringify(m)); } catch (_) {} }
@@ -194,7 +210,9 @@ footer a{color:var(--water)}
     lastHome = home;
     var rad = +$('#rad').value;
     status('Loading water data around ' + (home.label || 'the map center') + '…');
-    var res = await Promise.allSettled([overpass(home.lat, home.lon, rad), countyPools(home.lat, home.lon, rad)]);
+    var res = await Promise.allSettled([
+      waterTiles(home.lat, home.lon, rad).then(function (t) { return t || overpass(home.lat, home.lon, rad); }),
+      countyPools(home.lat, home.lon, rad)]);
     var osm = res[0].status === 'fulfilled' ? res[0].value : { elements: [] };
     var pools = res[1].status === 'fulfilled' ? res[1].value : [];
     var els = osm.elements.slice();

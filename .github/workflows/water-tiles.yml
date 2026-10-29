@@ -1,0 +1,38 @@
+name: Build Florida water tiles
+on:
+  schedule:
+    - cron: '17 7 * * 1'   # Mondays 07:17 UTC
+  workflow_dispatch: {}
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install osmium
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
+      - name: Download Florida extract (Geofabrik)
+        run: curl -sSfL -o florida.osm.pbf https://download.geofabrik.de/north-america/us/florida-latest.osm.pbf
+      - name: Filter water features
+        run: |
+          osmium tags-filter florida.osm.pbf \
+            nwr/natural=water nwr/landuse=basin,reservoir \
+            w/leisure=swimming_pool,water_park \
+            w/waterway=canal,ditch,drain,stream,river,riverbank \
+            nw/amenity=fountain -o water.osm.pbf
+          osmium export water.osm.pbf -f geojsonseq --add-unique-id=type_id -o water.geojsonseq
+      - name: Cut into tiles
+        run: |
+          rm -rf docs/data/water
+          python3 scripts/build_water_tiles.py water.geojsonseq docs/data/water
+          du -sh docs/data/water
+      - name: Commit if changed
+        run: |
+          git config user.name "hydro-shield-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data/water
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Weekly Florida water tiles from OpenStreetMap ($(date -u +%F))"
+          git push
