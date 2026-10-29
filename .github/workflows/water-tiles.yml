@@ -44,6 +44,8 @@ jobs:
       - name: Assemble site
         run: |
           mkdir -p _site && cp -r docs/. _site/
+          # Refresh Hillsborough pools from the HCPA parcel service (nightly-updated); keep committed data if it fails
+          python3 scripts/build_hillsborough_pools.py _site/data/pools || echo "HCPA refresh skipped"
           rm -rf _site/data/water && mkdir -p _site/data && cp -r water-tiles _site/data/water
           du -sh _site
       - uses: actions/upload-pages-artifact@v3
