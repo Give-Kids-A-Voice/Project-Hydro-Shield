@@ -24,6 +24,9 @@ input_boolean:
   hydroshield_practice:
     name: Hydro-Shield practice week (log only, no siren)
     icon: mdi:clipboard-text-clock
+  hydroshield_out_together:
+    name: We're going out together (turns itself off when the tag is home again)
+    icon: mdi:walk
   hydroshield_with_child:
     name: Caregiver is with the child (hushes faint-signal warning only)
     icon: mdi:human-male-child
@@ -109,19 +112,42 @@ automation:
               - condition: state
                 entity_id: binary_sensor.hydro_shield_child_near_a_door
                 state: "on"
-          - condition: and                           # child left without a caregiver phone beside him
+          - condition: and                           # child left without a caregiver beside him
             conditions:
               - condition: trigger
                 id: outside
-              - condition: state
-                entity_id: binary_sensor.hydro_shield_caregiver_with_child
-                state: "off"
+              - condition: or
+                conditions:
+                  # Night: a phone on a nightstand near the hallway must not count as "with him".
+                  # Only an explicit "We're going out together" tap allows leaving at night.
+                  - condition: and
+                    conditions:
+                      - condition: state
+                        entity_id: binary_sensor.hydro_shield_night
+                        state: "on"
+                      - condition: state
+                        entity_id: input_boolean.hydroshield_out_together
+                        state: "off"
+                  - condition: state
+                    entity_id: binary_sensor.hydro_shield_caregiver_with_child
+                    state: "off"
     actions:
       - action: script.hydroshield_alarm
         data:
           why: >-
             {% if trigger.id == 'door' %}{{ state_attr(trigger.entity_id, 'friendly_name') }} opened and {{ states('sensor.hydro_shield_child_name') }} is near it
             {% else %}{{ states('sensor.hydro_shield_child_name') }} has left the house{% endif %}
+
+  - id: hydroshield_out_together_off
+    alias: Hydro-Shield - end "out together" when back home
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.hydro_shield_child_outside
+        to: "off"
+        for: "00:01:00"
+    actions:
+      - action: input_boolean.turn_off
+        target: { entity_id: input_boolean.hydroshield_out_together }
 
   # Door opened while the child is deep inside: someone else leaving. Chime only.
   - id: hydroshield_door_chime
