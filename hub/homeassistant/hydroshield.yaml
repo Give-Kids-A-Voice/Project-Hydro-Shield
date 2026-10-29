@@ -149,6 +149,40 @@ automation:
       - action: input_boolean.turn_off
         target: { entity_id: input_boolean.hydroshield_out_together }
 
+  # Turning it off is never silent: every caregiver is told who did it and when
+  - id: hydroshield_disarm_notice
+    alias: Hydro-Shield - tell everyone when it is turned off
+    triggers:
+      - trigger: state
+        entity_id: input_boolean.hydroshield_armed
+        to: "off"
+    actions:
+      - variables:
+          who: >-
+            {% set u = trigger.to_state.context.user_id %}
+            {{ (states.person | selectattr('attributes.user_id', 'eq', u) | map(attribute='name') | first) if u else 'Someone' }}
+      - action: notify.notify
+        data:
+          title: "Hydro-Shield is OFF"
+          message: "{{ who }} turned Hydro-Shield off at {{ now().strftime('%-I:%M %p') }}. It turns back on at {{ states('input_datetime.hydroshield_night_start')[:5] }}."
+          data: { ttl: 0, priority: high }
+
+  # Re-arms itself every evening so a daytime "off" can never carry into the early morning
+  - id: hydroshield_nightly_rearm
+    alias: Hydro-Shield - re-arm at night start
+    triggers:
+      - trigger: time
+        at: input_datetime.hydroshield_night_start
+    conditions:
+      - condition: state
+        entity_id: input_boolean.hydroshield_armed
+        state: "off"
+    actions:
+      - action: input_boolean.turn_on
+        target: { entity_id: input_boolean.hydroshield_armed }
+      - action: notify.notify
+        data: { message: "Hydro-Shield turned itself back on for the night." }
+
   # Door opened while the child is deep inside: someone else leaving. Chime only.
   - id: hydroshield_door_chime
     alias: Hydro-Shield - door chime (child inside)

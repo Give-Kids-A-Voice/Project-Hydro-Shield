@@ -40,3 +40,9 @@ Prices move; check current listings. Already own a Home Assistant box (HA Green,
 - **Practice week:** turn on *practice week* for the first 7 days; would-be alarms are logged, not sounded. Tune, then switch it off.
 - **Offline alert:** a free healthchecks.io check receives a ping every 2 minutes and texts caregivers if the box stops (unplugged, power or internet out).
 - **False-alarm count:** after every alarm the phone asks "real or false?"; more than one false alarm a week is a bug to fix.
+
+## Guarding against alarm fatigue and overrides
+- Parents get a **non-admin** Home Assistant user; the foundation keeps the admin login. Non-admins cannot edit automations.
+- Tuning requests go through the foundation, within hard caps (distance limit max 15 m, quiet step max 15 s). No setting can disable exit alarms.
+- Turning Hydro-Shield off notifies every caregiver with who and when, and it re-arms itself at the start of night mode.
+- Siren = real exit only. Information is a chime, faint signal is a phone buzz. Repeated false sirens are treated as bugs.
