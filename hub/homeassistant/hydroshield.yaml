@@ -14,6 +14,12 @@
 #  * Practice week: logs would-be alarms without sounding, to tune the house before going live.
 #  * Heartbeat: if the box is unplugged or offline, an outside service texts the caregivers.
 
+group:
+  hydroshield_home_pool_doors:
+    name: Doors/gates to OUR pool (safe with an adult nearby, daytime)
+    entities:
+      - binary_sensor.pool_gate          # CHANGE ME: doors that open only onto your own pool
+
 input_boolean:
   hydroshield_armed:
     name: Hydro-Shield armed
@@ -112,6 +118,20 @@ automation:
               - condition: state
                 entity_id: binary_sensor.hydro_shield_child_near_a_door
                 state: "on"
+              # Home pool is "safe with an adult nearby": during the day, the pool door/gate does not
+              # alarm while a caregiver phone is beside the child. Alone, or at night, it alarms like any exit.
+              - condition: not
+                conditions:
+                  - condition: and
+                    conditions:
+                      - condition: template
+                        value_template: "{{ trigger.entity_id in state_attr('group.hydroshield_home_pool_doors', 'entity_id') | default([], true) }}"
+                      - condition: state
+                        entity_id: binary_sensor.hydro_shield_night
+                        state: "off"
+                      - condition: state
+                        entity_id: binary_sensor.hydro_shield_caregiver_with_child
+                        state: "on"
           - condition: and                           # child left without a caregiver beside him
             conditions:
               - condition: trigger

@@ -42,7 +42,8 @@ Prices move; check current listings. Already own a Home Assistant box (HA Green,
 - **False-alarm count:** after every alarm the phone asks "real or false?"; more than one false alarm a week is a bug to fix.
 
 ## Guarding against alarm fatigue and overrides
-- Parents get a **non-admin** Home Assistant user; the foundation keeps the admin login. Non-admins cannot edit automations.
-- Tuning requests go through the foundation, within hard caps (distance limit max 15 m, quiet step max 15 s). No setting can disable exit alarms.
-- Turning Hydro-Shield off notifies every caregiver with who and when, and it re-arms itself at the start of night mode.
-- Siren = real exit only. Information is a chime, faint signal is a phone buzz. Repeated false sirens are treated as bugs.
+The parent owns the system and every decision. The project's job is safe defaults and making changes visible, not enforcing rules.
+- **Safe out of the box:** exits always sound the siren, night mode, nightly re-arm. A family that never touches a setting gets the safest behavior.
+- **Visible, not blocked:** turning it off or changing a setting notifies every caregiver with who and when, and it re-arms itself at the start of night mode.
+- **Siren = real exit only.** Information is a chime, faint signal is a phone buzz. Repeated false sirens are bugs for the project to fix.
+- **Home pool, "safe with an adult nearby":** list your own pool's door/gate in `group.hydroshield_home_pool_doors`. In daytime it does not alarm while a caregiver phone is beside the child; alone or at night it alarms like any exit. Every other pool and body of water always alarms.
