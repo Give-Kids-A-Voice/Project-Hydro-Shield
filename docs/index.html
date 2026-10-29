@@ -94,7 +94,7 @@ footer a{color:var(--water)}
   </div>
 
   <footer>
-    <span>Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>, and the Pasco and Pinellas County Property Appraisers (public records). Address search by Nominatim.</span>
+    <span>Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>, and the Pasco and Pinellas County Property Appraisers (public records). Address search by Esri and Nominatim.</span>
     <span>Not a substitute for supervision, door alarms or swim lessons.</span>
     <a href="found.html">Make an "If found" card for a shoe tag</a>
     <a href="https://github.com/Give-Kids-A-Voice/Project-Hydro-Shield" target="_blank" rel="noopener">Source on GitHub</a>
@@ -116,9 +116,15 @@ footer a{color:var(--water)}
   function status(t, err) { var s = $('#st'); s.textContent = t; s.className = 'status' + (err ? ' err' : ''); }
 
   async function geocode(q) {
-    var r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } });
-    var j = await r.json(); if (!j.length) throw new Error('We could not find that address. Try adding the city and state.');
-    return { lat: +j[0].lat, lon: +j[0].lon, label: j[0].display_name };
+    // 1) Esri World Geocoder: strong on US street addresses (results not stored). 2) OpenStreetMap Nominatim as fallback.
+    try {
+      var r = await fetch('https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?f=json&maxLocations=1&countryCode=USA&outFields=Match_addr&SingleLine=' + encodeURIComponent(q));
+      var j = await r.json(), c = j.candidates && j.candidates[0];
+      if (c && c.score >= 80) return { lat: c.location.y, lon: c.location.x, label: c.address };
+    } catch (e) {}
+    var r2 = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } });
+    var j2 = await r2.json(); if (!j2.length) throw new Error('We could not find that address. Check the spelling, or click your home on the map instead.');
+    return { lat: +j2[0].lat, lon: +j2[0].lon, label: j2[0].display_name };
   }
   var cache = {};
   async function overpass(lat, lon, rad) {
