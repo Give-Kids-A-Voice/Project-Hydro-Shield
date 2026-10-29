@@ -96,6 +96,9 @@ automation:
     actions:
       - action: input_boolean.turn_off
         target: { entity_id: input_boolean.hydroshield_alarm }
+      - action: siren.turn_off
+        target: { entity_id: siren.hydroshield_siren }
+        continue_on_error: true
 
 script:
   hydroshield_announce:
@@ -117,6 +120,11 @@ script:
             actions:
               - action: HYDROSHIELD_FOUND
                 title: "Found - stop alarm"
+      # Siren: works with no internet, Wi-Fi or phones (siren has its own backup battery)
+      - action: siren.turn_on
+        target:
+          entity_id: siren.hydroshield_siren                 # CHANGE ME: your Zigbee siren
+        continue_on_error: true
       # Speakers and TVs: every media player Home Assistant knows about
       - action: tts.speak
         target:
