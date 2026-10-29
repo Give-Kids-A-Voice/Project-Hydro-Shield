@@ -236,6 +236,9 @@ footer a{color:var(--water)}
       return !ours.some(function (o) { return Math.abs(o[0] - e.lat) < 0.0003 && Math.abs(o[1] - e.lon) < 0.0003; });
     });
     var hz = HydroShield.hazards({ elements: els }, home.lat, home.lon, rad);
+    // OpenStreetMap often maps one lake twice (as a shape and as a multipolygon). Show it once.
+    var seenHz = {};
+    hz = hz.filter(function (h) { var k = h.name + '|' + h.kind + '|' + Math.round(h.dist / 3); if (seenHz[k]) return false; seenHz[k] = 1; return true; });
     hz.forEach(function (h) { if (/^node\/mk/.test(h.id) && h.name === 'Our pool') { h.sev = 1; h.kind = 'Safe with an adult nearby. Alarm still covers it alone or at night.'; h.ours = true; } });
     hz = hz.filter(function (h) { return !h.ours; }).concat(hz.filter(function (h) { return h.ours; }));
     render(home, rad, hz);
