@@ -31,3 +31,12 @@ Prices move; check current listings. Already own a Home Assistant box (HA Green,
 - Bluetooth distance is noisy; walls and bodies change it. Door sensors are the most reliable trigger; the tag is the backup that also catches open windows and a door left open.
 - This is an alarm, not a locator. Outdoor tracking (Layer 2) needs a GPS wearable and is a later module.
 - Never a substitute for supervision, door locks set high, pool fences and swim lessons.
+
+## Keeping false alarms rare without ever pausing protection
+- **Exits always alarm at once and cannot be paused:** a door opening while the child's tag is near it, or the tag leaving without a caregiver's phone beside it.
+- **Door opens while the child is deep inside:** chime only (someone else leaving). Needs a small Bluetooth receiver at each door (ESP32 Bluetooth proxy + Bermuda integration) to know which room the tag is in; until then every watched door is treated as an exit.
+- **Tag signal lost (lying on it):** quiet phone warning, siren after 12 seconds unless the signal returns or a caregiver taps "I'm with him" (that hush lasts 5 minutes and covers only this warning). Night mode skips straight to the siren.
+- **Out together:** turn on the Home Assistant app's BLE transmitter on caregiver phones; if the child's tag leaves with a caregiver phone beside it, no alarm.
+- **Practice week:** turn on *practice week* for the first 7 days; would-be alarms are logged, not sounded. Tune, then switch it off.
+- **Offline alert:** a free healthchecks.io check receives a ping every 2 minutes and texts caregivers if the box stops (unplugged, power or internet out).
+- **False-alarm count:** after every alarm the phone asks "real or false?"; more than one false alarm a week is a bug to fix.

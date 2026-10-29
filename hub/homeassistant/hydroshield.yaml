@@ -1,14 +1,18 @@
 # Project Hydro-Shield: exit alarm package for Home Assistant
-# Drop this file into config/packages/ and add to configuration.yaml:
+# Drop into config/packages/ and add to configuration.yaml:
 #   homeassistant:
 #     packages: !include_dir_named packages
-# Then edit the four lines marked CHANGE ME and restart Home Assistant.
+# Then set the entity names marked CHANGE ME and restart.
 #
-# What it does while ARMED:
-#  1. Tag leaves the house (estimated distance above the limit, or tracker says away)  -> alarm
-#  2. A watched door opens                                                             -> alarm
-#  3. Tag goes silent (dead battery, pulled off, out of range)                         -> alarm  (fail loud)
-#  4. Alarm repeats on every speaker and as a critical phone alert until someone taps "I have him/her".
+# Design rules (a drowning can happen in 2-3 minutes, and an alarm that cries wolf gets unplugged):
+#  * EXIT triggers can never be paused or hushed: door opens with the child's tag near it,
+#    or the child's tag goes past the distance limit without a caregiver's phone beside it.
+#  * Only the "faint signal" warning (child lying on the tag) has a quiet first step, and it
+#    escalates to the full siren after 12 seconds unless the signal comes back or a caregiver taps "I'm with him".
+#  * "Out together" only counts while a caregiver phone is next to the child's tag.
+#  * Night mode: no quiet step at all.
+#  * Practice week: logs would-be alarms without sounding, to tune the house before going live.
+#  * Heartbeat: if the box is unplugged or offline, an outside service texts the caregivers.
 
 input_boolean:
   hydroshield_armed:
@@ -17,6 +21,12 @@ input_boolean:
   hydroshield_alarm:
     name: Hydro-Shield alarm active
     icon: mdi:alarm-light
+  hydroshield_practice:
+    name: Hydro-Shield practice week (log only, no siren)
+    icon: mdi:clipboard-text-clock
+  hydroshield_with_child:
+    name: Caregiver is with the child (hushes faint-signal warning only)
+    icon: mdi:human-male-child
 
 input_number:
   hydroshield_distance_limit_m:
@@ -26,33 +36,61 @@ input_number:
     step: 1
     unit_of_measurement: m
     initial: 12
+  hydroshield_false_alarms:
+    name: Hydro-Shield false alarms (this week)
+    min: 0
+    max: 999
+    step: 1
+
+input_datetime:
+  hydroshield_night_start: { name: Night mode starts, has_date: false, has_time: true, initial: "20:30:00" }
+  hydroshield_night_end:   { name: Night mode ends,   has_date: false, has_time: true, initial: "07:00:00" }
+
+counter:
+  hydroshield_would_alarm:
+    name: Practice week - would have alarmed
 
 template:
   - sensor:
       - name: Hydro-Shield child name
-        state: "Jake"   # CHANGE ME: child's name, spoken in the alarm
+        state: "Robert"   # CHANGE ME
+  - binary_sensor:
+      - name: Hydro-Shield night
+        state: >
+          {% set s = states('input_datetime.hydroshield_night_start') %}{% set e = states('input_datetime.hydroshield_night_end') %}
+          {% set n = now().strftime('%H:%M:%S') %}
+          {{ (n >= s or n < e) if s > e else (s <= n < e) }}
+      # Child's tag is outside the house (distance past the limit OR tracker says away)
+      - name: Hydro-Shield child outside
+        state: >
+          {% set d = states('sensor.child_tag_estimated_distance') | float(0) %}
+          {{ d > states('input_number.hydroshield_distance_limit_m') | float(12) or is_state('device_tracker.child_tag', 'not_home') }}
+        delay_on: "00:00:03"
+      # A caregiver phone (Home Assistant app BLE transmitter, tracked by iBeacon) is beside the tag
+      - name: Hydro-Shield caregiver with child
+        state: >
+          {% set c = [states('sensor.caregiver_phone_1_estimated_distance'), states('sensor.caregiver_phone_2_estimated_distance')] %}
+          {% set t = states('sensor.child_tag_estimated_distance') | float(99) %}
+          {{ c | select('is_number') | map('float') | select('le', t + 3) | select('ge', t - 3) | list | count > 0 }}
+      # Child's tag near an outside door (from a BLE receiver at that door; area sensor from Bermuda/ESPHome proxies).
+      # Until door receivers are installed this is always on, so every watched door opening is treated as an exit.
+      - name: Hydro-Shield child near a door
+        state: >
+          {% set a = states('sensor.child_tag_area') %}
+          {{ a in ['unknown', 'unavailable', 'none'] or 'door' in a | lower or 'garage' in a | lower }}
 
 automation:
-  - id: hydroshield_trigger
-    alias: Hydro-Shield - trigger alarm
+  # ---------- EXIT: never pausable ----------
+  - id: hydroshield_exit
+    alias: Hydro-Shield - EXIT (immediate siren)
     mode: single
     triggers:
-      - trigger: numeric_state
-        entity_id: sensor.child_tag_estimated_distance     # CHANGE ME: from the iBeacon Tracker integration
-        above: input_number.hydroshield_distance_limit_m
-        for: "00:00:05"
-        id: distance
       - trigger: state
-        entity_id: device_tracker.child_tag                # CHANGE ME: same tag's tracker
-        to: not_home
-        id: away
+        entity_id: binary_sensor.hydro_shield_child_outside
+        to: "on"
+        id: outside
       - trigger: state
-        entity_id: sensor.child_tag_estimated_distance
-        to: unavailable
-        for: "00:00:30"
-        id: silent
-      - trigger: state
-        entity_id:                                         # CHANGE ME: your door sensors
+        entity_id:                                   # CHANGE ME: every exit the child can reach
           - binary_sensor.front_door
           - binary_sensor.back_door
           - binary_sensor.pool_gate
@@ -62,33 +100,106 @@ automation:
       - condition: state
         entity_id: input_boolean.hydroshield_armed
         state: "on"
+      - condition: or
+        conditions:
+          - condition: and                           # door opened while the child is near it
+            conditions:
+              - condition: trigger
+                id: door
+              - condition: state
+                entity_id: binary_sensor.hydro_shield_child_near_a_door
+                state: "on"
+          - condition: and                           # child left without a caregiver phone beside him
+            conditions:
+              - condition: trigger
+                id: outside
+              - condition: state
+                entity_id: binary_sensor.hydro_shield_caregiver_with_child
+                state: "off"
+    actions:
+      - action: script.hydroshield_alarm
+        data:
+          why: >-
+            {% if trigger.id == 'door' %}{{ state_attr(trigger.entity_id, 'friendly_name') }} opened and {{ states('sensor.hydro_shield_child_name') }} is near it
+            {% else %}{{ states('sensor.hydro_shield_child_name') }} has left the house{% endif %}
+
+  # Door opened while the child is deep inside: someone else leaving. Chime only.
+  - id: hydroshield_door_chime
+    alias: Hydro-Shield - door chime (child inside)
+    triggers:
+      - trigger: state
+        entity_id: [binary_sensor.front_door, binary_sensor.back_door, binary_sensor.pool_gate]
+        to: "on"
+    conditions:
       - condition: state
-        entity_id: input_boolean.hydroshield_alarm
+        entity_id: binary_sensor.hydro_shield_child_near_a_door
         state: "off"
     actions:
-      - action: input_boolean.turn_on
-        target: { entity_id: input_boolean.hydroshield_alarm }
-      - variables:
-          child: "{{ states('sensor.hydro_shield_child_name') }}"
-          why: >-
-            {% if trigger.id == 'door' %}{{ state_attr(trigger.entity_id, 'friendly_name') }} opened
-            {% elif trigger.id == 'silent' %}tag stopped reporting. Check {{ child }} now
-            {% else %}{{ child }} has left the house{% endif %}
-      - repeat:
-          while:
-            - condition: state
-              entity_id: input_boolean.hydroshield_alarm
-              state: "on"
-            - condition: template
-              value_template: "{{ repeat.index <= 40 }}"
-          sequence:
-            - action: script.hydroshield_announce
-              data:
-                message: "Alert. {{ why }}. Search the water first."
-            - delay: "00:00:15"
+      - action: notify.notify
+        data: { message: "{{ state_attr(trigger.entity_id, 'friendly_name') }} opened (Robert is inside)." }
 
-  - id: hydroshield_ack
-    alias: Hydro-Shield - acknowledged from phone
+  # ---------- FAINT SIGNAL: quiet step, then siren ----------
+  - id: hydroshield_faint
+    alias: Hydro-Shield - tag faint or silent
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: sensor.child_tag_estimated_distance
+        to: unavailable
+        for: "00:00:10"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.hydroshield_armed
+        state: "on"
+      - condition: state
+        entity_id: input_boolean.hydroshield_with_child
+        state: "off"
+    actions:
+      # Night mode: straight to the siren
+      - if:
+          - condition: state
+            entity_id: binary_sensor.hydro_shield_night
+            state: "on"
+        then:
+          - action: script.hydroshield_alarm
+            data: { why: "{{ states('sensor.hydro_shield_child_name') }}'s tag stopped reporting. Check him now" }
+          - stop: "Night alarm"
+      # Day: quiet warning, 12 seconds to answer, then the siren
+      - action: notify.notify
+        data:
+          title: "Check on {{ states('sensor.hydro_shield_child_name') }}"
+          message: "His tag signal is lost. Siren in 12 seconds unless you tap I'm with him."
+          data:
+            ttl: 0
+            priority: high
+            actions: [{ action: HYDROSHIELD_WITH, title: "I'm with him" }]
+      - wait_template: >
+          {{ not is_state('sensor.child_tag_estimated_distance', 'unavailable') or is_state('input_boolean.hydroshield_with_child', 'on') }}
+        timeout: "00:00:12"
+        continue_on_timeout: true
+      - if:
+          - condition: template
+            value_template: "{{ not wait.completed }}"
+        then:
+          - action: script.hydroshield_alarm
+            data: { why: "{{ states('sensor.hydro_shield_child_name') }}'s tag stopped reporting. Check him now" }
+
+  - id: hydroshield_with_tap
+    alias: Hydro-Shield - "I'm with him" tapped (hushes faint warning only, 5 min)
+    triggers:
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data: { action: HYDROSHIELD_WITH }
+    actions:
+      - action: input_boolean.turn_on
+        target: { entity_id: input_boolean.hydroshield_with_child }
+      - delay: "00:05:00"
+      - action: input_boolean.turn_off
+        target: { entity_id: input_boolean.hydroshield_with_child }
+
+  # ---------- Found / stop ----------
+  - id: hydroshield_found
+    alias: Hydro-Shield - found (stop alarm)
     triggers:
       - trigger: event
         event_type: mobile_app_notification_action
@@ -99,16 +210,84 @@ automation:
       - action: siren.turn_off
         target: { entity_id: siren.hydroshield_siren }
         continue_on_error: true
+      - action: notify.notify
+        data:
+          message: "Alarm stopped. Was this a real exit?"
+          data:
+            actions:
+              - { action: HYDROSHIELD_REAL, title: "Yes, real" }
+              - { action: HYDROSHIELD_FALSE, title: "False alarm" }
+
+  - id: hydroshield_false_count
+    alias: Hydro-Shield - count false alarms
+    triggers:
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data: { action: HYDROSHIELD_FALSE }
+    actions:
+      - action: input_number.increment
+        target: { entity_id: input_number.hydroshield_false_alarms }
+
+  # ---------- Heartbeat: an outside service alerts caregivers if the box goes offline ----------
+  # Create a free check at healthchecks.io (period 5 min, grace 5 min), add caregivers' phones/emails there,
+  # and paste the ping URL below.
+  - id: hydroshield_heartbeat
+    alias: Hydro-Shield - heartbeat
+    triggers:
+      - trigger: time_pattern
+        minutes: "/2"
+    actions:
+      - action: rest_command.hydroshield_ping
+
+rest_command:
+  hydroshield_ping:
+    url: "https://hc-ping.com/YOUR-CHECK-UUID"      # CHANGE ME
+    method: GET
+    timeout: 10
 
 script:
+  hydroshield_alarm:
+    alias: Hydro-Shield - sound the alarm (or log it in practice week)
+    mode: single
+    fields:
+      why: { description: Reason spoken and sent }
+    sequence:
+      - if:
+          - condition: state
+            entity_id: input_boolean.hydroshield_practice
+            state: "on"
+        then:
+          - action: counter.increment
+            target: { entity_id: counter.hydroshield_would_alarm }
+          - action: logbook.log
+            data: { name: Hydro-Shield practice, message: "Would have alarmed: {{ why }}" }
+          - stop: "Practice week"
+      - action: input_boolean.turn_on
+        target: { entity_id: input_boolean.hydroshield_alarm }
+      - repeat:
+          while:
+            - condition: state
+              entity_id: input_boolean.hydroshield_alarm
+              state: "on"
+            - condition: template
+              value_template: "{{ repeat.index <= 60 }}"
+          sequence:
+            - action: script.hydroshield_announce
+              data: { message: "Alert. {{ why }}. Search the water first." }
+            - delay: "00:00:15"
+
   hydroshield_announce:
     alias: Hydro-Shield - announce everywhere
     mode: parallel
     fields:
       message: { description: What to say }
     sequence:
+      # Siren first: works with no internet, Wi-Fi or phones (siren has its own backup battery)
+      - action: siren.turn_on
+        target: { entity_id: siren.hydroshield_siren }       # CHANGE ME
+        continue_on_error: true
       # Phones: critical alert that sounds even on silent (iPhone) / alarm channel (Android)
-      - action: notify.notify                              # CHANGE ME if you want specific phones, e.g. notify.mobile_app_marks_iphone
+      - action: notify.notify                                 # CHANGE ME for specific phones
         data:
           title: "HYDRO-SHIELD ALARM"
           message: "{{ message }}"
@@ -117,19 +296,12 @@ script:
             ttl: 0
             priority: high
             channel: alarm_stream
-            actions:
-              - action: HYDROSHIELD_FOUND
-                title: "Found - stop alarm"
-      # Siren: works with no internet, Wi-Fi or phones (siren has its own backup battery)
-      - action: siren.turn_on
-        target:
-          entity_id: siren.hydroshield_siren                 # CHANGE ME: your Zigbee siren
+            actions: [{ action: HYDROSHIELD_FOUND, title: "Found - stop alarm" }]
         continue_on_error: true
-      # Speakers and TVs: every media player Home Assistant knows about
+      # Speakers and TVs
       - action: tts.speak
-        target:
-          entity_id: tts.google_translate_en_com
+        target: { entity_id: tts.google_translate_en_com }
         data:
           media_player_entity_id: "{{ states.media_player | map(attribute='entity_id') | list }}"
           message: "{{ message }}"
-          cache: true
+        continue_on_error: true
