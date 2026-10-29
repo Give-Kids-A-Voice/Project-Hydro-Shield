@@ -108,7 +108,7 @@ footer a{color:var(--water)}
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
   var layer = L.layerGroup().addTo(map), shapes = {};
 
-  var OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+  var OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
   function status(t, err) { var s = $('#st'); s.textContent = t; s.className = 'status' + (err ? ' err' : ''); }
 
   async function geocode(q) {
@@ -116,13 +116,28 @@ footer a{color:var(--water)}
     var j = await r.json(); if (!j.length) throw new Error('We could not find that address. Try adding the city and state.');
     return { lat: +j[0].lat, lon: +j[0].lon, label: j[0].display_name };
   }
+  var cache = {};
   async function overpass(lat, lon, rad) {
-    var q = HydroShield.overpassQuery(lat, lon, rad), last;
-    for (var i = 0; i < OVERPASS.length; i++) {
-      try { var r = await fetch(OVERPASS[i], { method: 'POST', body: 'data=' + encodeURIComponent(q) }); if (r.ok) return await r.json(); last = new Error('Map data server busy (' + r.status + ').'); }
-      catch (e) { last = e; }
-    }
-    throw last || new Error('Map data server unreachable.');
+    var q = HydroShield.overpassQuery(lat, lon, rad), key = q;
+    if (cache[key]) return cache[key];
+    // Ask every server at once with a time limit; the first good answer wins.
+    var ctrls = [];
+    var tries = OVERPASS.map(function (url, i) {
+      var c = new AbortController(); ctrls.push(c);
+      var t = setTimeout(function () { c.abort(); }, 25000);
+      return new Promise(function (res, rej) { setTimeout(res, i * 1500); }).then(function () {
+        return fetch(url, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: c.signal });
+      }).then(function (r) { clearTimeout(t); if (!r.ok) throw new Error('busy ' + r.status); return r.json(); })
+        .then(function (j) { if (!j || !j.elements) throw new Error('bad data'); return j; });
+    });
+    var slow = setTimeout(function () { status('The map data servers are slow right now. Still trying…'); }, 8000);
+    try {
+      var j = await Promise.any(tries);
+      ctrls.forEach(function (c) { try { c.abort(); } catch (_) {} });
+      cache[key] = j; return j;
+    } catch (e) {
+      throw new Error('The map data servers did not answer. Wait a minute and press Map the water again.');
+    } finally { clearTimeout(slow); }
   }
   function fmt(m) { return m < 1 ? 'at home' : m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1) + ' km'; }
   function ft(m) { return Math.round(m * 3.281).toLocaleString() + ' ft'; }
