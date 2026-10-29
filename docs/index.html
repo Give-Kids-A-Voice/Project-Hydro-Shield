@@ -149,12 +149,12 @@ footer a{color:var(--water)}
     layer.clearLayers(); shapes = {};
     L.circle([home.lat, home.lon], { radius: rad, color: C('--muted'), weight: 1, dashArray: '4 6', fill: false }).addTo(layer);
     L.circleMarker([home.lat, home.lon], { radius: 8, color: '#fff', weight: 3, fillColor: C('--danger'), fillOpacity: 1 }).addTo(layer).bindTooltip('Home', { permanent: false });
-    hz.forEach(function (h) {
+    hz.forEach(function (h, idx) {
       var col = h.cls === 'pool' ? C('--pool') : C('--water');
       var opts = { color: col, weight: h.line ? 4 : 2, fillColor: h.cls === 'pool' ? C('--pool') : C('--water-fill'), fillOpacity: .45 };
       var shp = h.line ? L.polyline(h.coords, opts) : L.polygon(h.coords, opts);
       shp.addTo(layer).bindPopup('<b>' + h.name.replace(/</g, '&lt;') + '</b><br>' + h.kind + '<br>' + fmt(h.dist) + ' from home');
-      L.polyline([[home.lat, home.lon], h.nearest], { color: col, weight: 1, dashArray: '2 4' }).addTo(layer);
+      if (idx < 10) L.polyline([[home.lat, home.lon], h.nearest], { color: col, weight: 1, dashArray: '2 4' }).addTo(layer);
       shapes[h.id] = shp;
     });
     var list = $('#list'); list.innerHTML = '';
