@@ -191,9 +191,12 @@ footer a{color:var(--water)}
     await Promise.all(keys.map(function (k) {
       return fetch('data/water/' + k + '.json').then(function (r) { if (!r.ok) return []; hit++; return r.json(); }).then(function (a) {
         a.forEach(function (f) {
-          if (seen[f.i]) return; seen[f.i] = 1;
-          if (f.g.length === 1 && f.g[0].length === 1) els.push({ type: 'node', id: f.i, lat: f.g[0][0][0], lon: f.g[0][0][1], tags: f.t });
-          else els.push({ type: 'relation', id: f.i, tags: f.t, members: f.g.map(function (r) { return { role: 'outer', geometry: r.map(function (p) { return { lat: p[0], lon: p[1] }; }) }; }) });
+          // A big lake is clipped into one piece per tile; join the pieces back under one id.
+          var mem = f.g.map(function (r) { return { role: 'outer', geometry: r.map(function (p) { return { lat: p[0], lon: p[1] }; }) }; });
+          if (seen[f.i]) { seen[f.i].members = seen[f.i].members.concat(mem); return; }
+          var el = (f.g.length === 1 && f.g[0].length === 1) ? { type: 'node', id: f.i, lat: f.g[0][0][0], lon: f.g[0][0][1], tags: f.t }
+                 : { type: 'relation', id: f.i, tags: Object.assign({}, f.t, f.l ? {} : {}), members: mem, _line: f.l };
+          seen[f.i] = el; els.push(el);
         });
       }).catch(function () {});
     }));

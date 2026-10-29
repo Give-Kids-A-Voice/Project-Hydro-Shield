@@ -1,38 +1,60 @@
-name: Build Florida water tiles
+name: Build water tiles and publish site
 on:
+  push:
+    branches: [main]
   schedule:
-    - cron: '17 7 * * 1'   # Mondays 07:17 UTC
+    - cron: '17 7 * * 1'   # Mondays 07:17 UTC: refresh Florida water from OpenStreetMap
   workflow_dispatch: {}
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - name: Install osmium
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
-      - name: Download Florida extract (Geofabrik)
-        run: curl -sSfL -o florida.osm.pbf https://download.geofabrik.de/north-america/us/florida-latest.osm.pbf
-      - name: Filter water features
+      - name: Week key
+        id: wk
+        run: echo "key=water-$(date -u +%G-%V)-${{ hashFiles('scripts/build_water_tiles.py') }}" >> "$GITHUB_OUTPUT"
+      - name: Reuse this week's tiles
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: water-tiles
+          key: ${{ steps.wk.outputs.key }}
+      - name: Build Florida water tiles
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
+          pip install -q shapely
+          curl -sSfL -o florida.osm.pbf https://download.geofabrik.de/north-america/us/florida-latest.osm.pbf
           osmium tags-filter florida.osm.pbf \
             nwr/natural=water nwr/landuse=basin,reservoir \
             w/leisure=swimming_pool,water_park \
             w/waterway=canal,ditch,drain,stream,river,riverbank \
             nw/amenity=fountain -o water.osm.pbf
           osmium export water.osm.pbf -f geojsonseq --add-unique-id=type_id -o water.geojsonseq
-      - name: Cut into tiles
+          python3 scripts/build_water_tiles.py water.geojsonseq water-tiles
+          du -sh water-tiles
+      - name: Assemble site
         run: |
-          rm -rf docs/data/water
-          python3 scripts/build_water_tiles.py water.geojsonseq docs/data/water
-          du -sh docs/data/water
-      - name: Commit if changed
-        run: |
-          git config user.name "hydro-shield-bot"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/data/water
-          git diff --cached --quiet && echo "No changes" && exit 0
-          git commit -m "Weekly Florida water tiles from OpenStreetMap ($(date -u +%F))"
-          git push
+          mkdir -p _site && cp -r docs/. _site/
+          rm -rf _site/data/water && mkdir -p _site/data && cp -r water-tiles _site/data/water
+          du -sh _site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.d.outputs.page_url }}
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4
