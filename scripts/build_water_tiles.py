@@ -12,7 +12,10 @@ KEEP = ('natural', 'water', 'landuse', 'leisure', 'waterway', 'amenity', 'name',
 tiles = collections.defaultdict(list); n = 0
 
 def rings(geom):
-    t, c = geom['type'], geom['coordinates']
+    t = geom['type']
+    if t == 'GeometryCollection': return [r for gg in geom['geometries'] for r in rings(gg)]
+    c = geom.get('coordinates')
+    if not c: return []
     if t == 'Point': return [[c]]
     if t == 'LineString': return [c]
     if t == 'MultiLineString': return c
