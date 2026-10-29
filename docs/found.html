@@ -60,9 +60,13 @@ I may flap, hum or run. That's how I calm down.</textarea></label>
       <button type="submit">Make my link</button>
     </form>
     <div id="out" class="card" hidden>
-      <strong>Your link</strong><code id="link"></code>
-      <button type="button" id="copy">Copy link</button>
-      <a id="preview" href="#">Preview the card</a>
+      <p class="muted" id="len"></p>
+      <strong>Full card (your own tips)</strong><code id="link"></code>
+      <button type="button" id="copy">Copy full link</button>
+      <a id="preview" href="#">Preview the full card</a>
+      <strong>Compact card (name and phones, standard tips)</strong><code id="link2"></code>
+      <button type="button" id="copy2">Copy compact link</button>
+      <a id="preview2" href="#">Preview the compact card</a>
       <p class="muted">To write it: install a free NFC writer app (e.g. "NFC Tools"), choose Write → Add a record → URL, paste the link, and hold your phone to the sticker.</p>
     </div>
   </section>
@@ -85,16 +89,29 @@ I may flap, hum or run. That's how I calm down.</textarea></label>
     });
     (d.t || []).filter(Boolean).forEach(function (t) { var li = document.createElement('li'); li.textContent = t; $('#c-tips').appendChild(li); });
   }
+  var TIPS = ["Speak calmly and simply. Don't touch me suddenly.", "I'm drawn to water. Keep me away from pools and ponds.", "Stay with me until my family or police arrive."];
+  function decCompact(s) {
+    var a = decodeURIComponent(s).split('|'), p = [];
+    for (var i = 1; i + 1 < a.length; i += 2) p.push(a[i] + ', ' + a[i + 1].replace(/^(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3'));
+    return { n: a[0], p: p, t: TIPS };
+  }
   var h = location.hash.slice(1);
-  if (h) { try { show(dec(h)); return; } catch (e) {} }
+  if (h) { try { show(h[0] === '!' ? decCompact(h.slice(1)) : dec(h)); return; } catch (e) {} }
   $('#make').hidden = false;
   $('#f').addEventListener('submit', function (e) {
     e.preventDefault();
     var d = { n: $('#n').value.trim(), h: $('#h').value.trim(), p: [$('#p1').value.trim(), $('#p2').value.trim()].filter(Boolean), t: $('#t').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean) };
-    var url = location.href.split('#')[0] + '#' + enc(d);
-    $('#link').textContent = url; $('#preview').href = url; $('#out').hidden = false;
+    var base = location.href.split('#')[0];
+    var full = base + '#' + enc(d);
+    var compact = base + '#!' + [d.n].concat(d.p.reduce(function (acc, l) { var x = phone(l); return acc.concat([x.who === 'Call my family' ? 'Family' : x.who, x.tel]); }, []))
+      .map(function (v) { return encodeURIComponent(v).replace(/%20/g, ' ').replace(/ /g, '%20'); }).join('|');
+    var fitsSmall = compact.replace(/^https:\/\//, '').length <= 130;
+    $('#link').textContent = full; $('#link2').textContent = compact; $('#preview').href = full; $('#preview2').href = compact;
+    $('#len').textContent = 'Full card: ' + full.length + ' characters (needs an NTAG215 or NTAG216 sticker). Compact: ' + compact.length + ' characters' + (fitsSmall ? ' (fits any NFC sticker, including NTAG213).' : ' (too long for NTAG213: shorten the names).');
+    $('#out').hidden = false;
   });
-  $('#preview').addEventListener('click', function (e) { e.preventDefault(); location.href = this.href; location.reload(); });
+  ['#preview', '#preview2'].forEach(function (id) { $(id).addEventListener('click', function (e) { e.preventDefault(); location.href = this.href; location.reload(); }); });
+  $('#copy2').addEventListener('click', function () { var t = $('#link2').textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { $('#copy2').textContent = 'Copied'; }).catch(function () {}); });
   $('#copy').addEventListener('click', function () {
     var t = $('#link').textContent;
     (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { $('#copy').textContent = 'Copied'; })
