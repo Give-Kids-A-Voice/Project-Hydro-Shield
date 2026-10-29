@@ -96,6 +96,7 @@ footer a{color:var(--water)}
   <footer>
     <span>Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records: Pasco and Pinellas County Property Appraisers (public records). Address search by Nominatim.</span>
     <span>Not a substitute for supervision, door alarms or swim lessons.</span>
+    <a href="found.html">Make an "If found" card for a shoe tag</a>
     <a href="https://github.com/Give-Kids-A-Voice/Project-Hydro-Shield" target="_blank" rel="noopener">Source on GitHub</a>
   </footer>
 </div>
@@ -167,9 +168,10 @@ footer a{color:var(--water)}
       list.appendChild(li);
     });
     if (!hz.length) list.innerHTML = '<li style="cursor:default"><span class="sev s1"></span><div>No mapped water in this radius. Check your street in person anyway.</div><span></span></li>';
-    $('#s-near').textContent = hz.length ? fmt(hz[0].dist) : 'none';
-    $('#s-count').textContent = hz.length;
-    $('#s-close').textContent = hz.filter(function (h) { return h.dist <= 150; }).length;
+    var risky = hz.filter(function (h) { return !h.ours; });
+    $('#s-near').textContent = risky.length ? fmt(risky[0].dist) : 'none';
+    $('#s-count').textContent = risky.length;
+    $('#s-close').textContent = risky.filter(function (h) { return h.dist <= 150; }).length;
     map.fitBounds(L.circle([home.lat, home.lon], { radius: rad }).addTo(map).getBounds(), { padding: [10, 10] });
   }
 
@@ -220,8 +222,16 @@ footer a{color:var(--water)}
     var pools = res[1].status === 'fulfilled' ? res[1].value : [];
     var els = osm.elements.slice();
     els = els.concat(asElements(pools, { prefix: 'cp', tags: function (p) { return { leisure: 'swimming_pool', name: p[2] === 'spa' ? 'Spa / hot tub (county record)' : 'Pool (county record)', access: 'private' }; } }));
-    els = els.concat(asElements(marks(), { prefix: 'mk', tags: function (p) { return p[2] === 'pool' ? { leisure: 'swimming_pool', name: 'Pool you marked' } : { natural: 'water', water: 'pond', name: 'Water you marked' }; } }));
+    els = els.concat(asElements(marks(), { prefix: 'mk', tags: function (p) { return p[2] === 'ours' ? { leisure: 'swimming_pool', name: 'Our pool', hs_ours: '1' } : p[2] === 'pool' ? { leisure: 'swimming_pool', name: 'Pool you marked' } : { natural: 'water', water: 'pond', name: 'Water you marked' }; } }));
+    // "Our pool": the family's own pool, OK with an adult. Drop the county record it duplicates and show it last, in green.
+    var ours = marks().filter(function (m) { return m[2] === 'ours'; });
+    if (ours.length) els = els.filter(function (e) {
+      if (!(e.tags && e.tags.name === 'Pool (county record)')) return true;
+      return !ours.some(function (o) { return Math.abs(o[0] - e.lat) < 0.0003 && Math.abs(o[1] - e.lon) < 0.0003; });
+    });
     var hz = HydroShield.hazards({ elements: els }, home.lat, home.lon, rad);
+    hz.forEach(function (h) { if (/^node\/mk/.test(h.id) && h.name === 'Our pool') { h.sev = 1; h.kind = 'Safe with an adult nearby. Alarm still covers it alone or at night.'; h.ours = true; } });
+    hz = hz.filter(function (h) { return !h.ours; }).concat(hz.filter(function (h) { return h.ours; }));
     render(home, rad, hz);
     var bits = [hz.length + ' water hazards within ' + fmt(rad) + ', nearest first.'];
     if (pools.length) bits.push(pools.length + ' pools from county records.');
@@ -241,12 +251,12 @@ footer a{color:var(--water)}
   map.on('click', function (e) {
     if (!marking) { run({ lat: e.latlng.lat, lon: e.latlng.lng, label: 'the point you clicked' }); return; }
     var kind = 'pond';
-    var pop = L.popup().setLatLng(e.latlng).setContent('<div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" data-k="pool">Pool</button><button type="button" data-k="pond">Pond / other water</button></div>').openOn(map);
+    var pop = L.popup().setLatLng(e.latlng).setContent('<div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" data-k="pool">Pool</button><button type="button" data-k="pond">Pond / other water</button><button type="button" data-k="ours">Our pool (OK with an adult)</button></div>').openOn(map);
     pop.getElement().addEventListener('click', function (ev) {
       var k = ev.target.getAttribute && ev.target.getAttribute('data-k'); if (!k) return;
       var m = marks(); m.push([+e.latlng.lat.toFixed(6), +e.latlng.lng.toFixed(6), k]); saveMarks(m);
       map.closePopup(); $('#mark').click(); if (lastHome) run(lastHome);
-      status('Saved on this device. It now counts in your water list.');
+      status(k === 'ours' ? 'Saved as your pool: shown in green, still covered by the alarm when he is alone or at night.' : 'Saved on this device. It now counts in your water list.');
     });
   });
   $('#f').requestSubmit();

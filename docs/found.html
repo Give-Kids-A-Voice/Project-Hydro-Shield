@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>If Found Card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: the card a stranger sees after tapping a child's shoe tag. Biggest type for the one action that matters: call. */
+:root{
+  --bg:#f2f6f7; --surface:#ffffff; --line:#cfdbde; --fg:#0f2a33; --muted:#4f6a72; --accent:#1f78b4; --alert:#c0362c; --ok:#2d7a4b;
+  --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{--bg:#0c181c;--surface:#122329;--line:#24404a;--fg:#e3eef0;--muted:#94b0b8;--accent:#6db4e6;--alert:#ff7a6e;--ok:#6cc792;color-scheme:dark}}
+*{box-sizing:border-box} html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:18px/1.5 var(--body)}
+.wrap{max-width:560px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.band{background:var(--alert);color:#fff;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:4px}
+.band b{font-size:1.5rem;line-height:1.15}
+h1{margin:0;font-size:2rem;line-height:1.1;text-wrap:balance}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.call{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--ok);color:#fff;text-decoration:none;border-radius:12px;padding:14px 16px;font-weight:700;font-size:1.15rem}
+.call span{font-variant-numeric:tabular-nums}
+ul{margin:0;padding-left:20px} li{margin:4px 0}
+.muted{color:var(--muted);font-size:.9rem}
+label{font-weight:700;font-size:.95rem;display:flex;flex-direction:column;gap:4px}
+input,textarea{font:inherit;font-size:1rem;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg);width:100%}
+textarea{min-height:90px}
+button{font:700 1rem var(--body);padding:12px 16px;border-radius:10px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+code{overflow-wrap:anywhere;font-size:.85rem}
+section{display:flex;flex-direction:column;gap:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- Shown to whoever taps the tag -->
+  <section id="card" hidden>
+    <div class="band"><b id="c-head">I am autistic and non-verbal.</b><span>I may not answer, look at you, or come when called. Please stay with me and call my family.</span></div>
+    <h1 id="c-name"></h1>
+    <div id="c-calls" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="card"><strong>How to help me</strong><ul id="c-tips"></ul></div>
+    <p class="muted">If you can't reach anyone, call 911 and say: "I found a non-verbal autistic child." This card was made with Project Hydro-Shield from Give Kids A Voice.</p>
+  </section>
+
+  <!-- Parents make the card here -->
+  <section id="make" hidden>
+    <h1>Make an "If found" card</h1>
+    <p class="muted">Fill this in, then write the link to a $1 NFC sticker on your child's shoe tag or bracelet. Anyone who taps it with a phone sees the card. Nothing is stored on any server: everything lives inside the link itself, so update the sticker if your numbers change.</p>
+    <form id="f" class="card">
+      <label for="n">Child's first name<input id="n" required value="Robert"></label>
+      <label for="h">Top line<input id="h" value="I am autistic and non-verbal."></label>
+      <label for="p1">Phone 1 (name, number)<input id="p1" placeholder="Mom, (813) 555-0100"></label>
+      <label for="p2">Phone 2 (name, number)<input id="p2" placeholder="Mark, (813) 555-0101"></label>
+      <label for="t">How to help (one per line)<textarea id="t">Speak calmly and simply. Don't touch me suddenly.
+I'm drawn to water. Keep me away from pools and ponds.
+I may flap, hum or run. That's how I calm down.</textarea></label>
+      <button type="submit">Make my link</button>
+    </form>
+    <div id="out" class="card" hidden>
+      <strong>Your link</strong><code id="link"></code>
+      <button type="button" id="copy">Copy link</button>
+      <a id="preview" href="#">Preview the card</a>
+      <p class="muted">To write it: install a free NFC writer app (e.g. "NFC Tools"), choose Write → Add a record → URL, paste the link, and hold your phone to the sticker.</p>
+    </div>
+  </section>
+</div>
+<script>
+(function () {
+  function enc(o) { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function dec(s) { s = s.replace(/-/g, '+').replace(/_/g, '/'); return JSON.parse(decodeURIComponent(escape(atob(s)))); }
+  var $ = function (q) { return document.querySelector(q); };
+  function phone(line) { var m = (line || '').split(','); var num = (m.slice(1).join(',') || m[0]).trim(); return { who: m.length > 1 ? m[0].trim() : 'Call my family', num: num, tel: num.replace(/[^\d+]/g, '') }; }
+  function show(d) {
+    $('#card').hidden = false; document.title = 'If found: ' + d.n;
+    $('#c-head').textContent = d.h || 'I am autistic and non-verbal.';
+    $('#c-name').textContent = 'My name is ' + d.n + '.';
+    (d.p || []).filter(Boolean).forEach(function (l) {
+      var p = phone(l); if (!p.tel) return;
+      var a = document.createElement('a'); a.className = 'call'; a.href = 'tel:' + p.tel;
+      a.innerHTML = '<span></span><span></span>'; a.children[0].textContent = 'Call ' + p.who; a.children[1].textContent = p.num;
+      $('#c-calls').appendChild(a);
+    });
+    (d.t || []).filter(Boolean).forEach(function (t) { var li = document.createElement('li'); li.textContent = t; $('#c-tips').appendChild(li); });
+  }
+  var h = location.hash.slice(1);
+  if (h) { try { show(dec(h)); return; } catch (e) {} }
+  $('#make').hidden = false;
+  $('#f').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var d = { n: $('#n').value.trim(), h: $('#h').value.trim(), p: [$('#p1').value.trim(), $('#p2').value.trim()].filter(Boolean), t: $('#t').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean) };
+    var url = location.href.split('#')[0] + '#' + enc(d);
+    $('#link').textContent = url; $('#preview').href = url; $('#out').hidden = false;
+  });
+  $('#preview').addEventListener('click', function (e) { e.preventDefault(); location.href = this.href; location.reload(); });
+  $('#copy').addEventListener('click', function () {
+    var t = $('#link').textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { $('#copy').textContent = 'Copied'; })
+      .catch(function () { var r = document.createRange(); r.selectNodeContents($('#link')); var s = getSelection(); s.removeAllRanges(); s.addRange(r); });
+  });
+})();
+</script>
+</body>
+</html>
