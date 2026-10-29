@@ -9,7 +9,7 @@ Commercial tracking solutions (like Apple AirTags) are entirely insufficient. Th
 **Project Hydro-Shield is an enterprise-grade, localized perimeter shield engineered to act instantly.** 
 
 ## 2. The Architectural Framework: Under $100 Hardware Targets
-To ensure absolute accessibility for low-income and vulnerable families, this platform is optimized to run locally on an affordable smart-home anchor (such as a Raspberry Pi Zero 2 W or standard low-cost Linux micro-board). 
+To ensure absolute accessibility for low-income and vulnerable families, this platform is optimized to run locally on an affordable smart-home anchor running Home Assistant (a Raspberry Pi 4 or any low-cost Home Assistant box; see hub/README.md). 
 
 The application works by listening to constant, high-frequency local **Bluetooth Low Energy (BLE) or Ultra-Wideband (UWB) beacons** woven into the individual's clothing or wristband. 
 

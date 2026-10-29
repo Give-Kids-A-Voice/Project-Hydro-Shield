@@ -1,0 +1,127 @@
+# Project Hydro-Shield: exit alarm package for Home Assistant
+# Drop this file into config/packages/ and add to configuration.yaml:
+#   homeassistant:
+#     packages: !include_dir_named packages
+# Then edit the four lines marked CHANGE ME and restart Home Assistant.
+#
+# What it does while ARMED:
+#  1. Tag leaves the house (estimated distance above the limit, or tracker says away)  -> alarm
+#  2. A watched door opens                                                             -> alarm
+#  3. Tag goes silent (dead battery, pulled off, out of range)                         -> alarm  (fail loud)
+#  4. Alarm repeats on every speaker and as a critical phone alert until someone taps "I have him/her".
+
+input_boolean:
+  hydroshield_armed:
+    name: Hydro-Shield armed
+    icon: mdi:shield-home
+  hydroshield_alarm:
+    name: Hydro-Shield alarm active
+    icon: mdi:alarm-light
+
+input_number:
+  hydroshield_distance_limit_m:
+    name: Hydro-Shield distance limit
+    min: 3
+    max: 30
+    step: 1
+    unit_of_measurement: m
+    initial: 12
+
+template:
+  - sensor:
+      - name: Hydro-Shield child name
+        state: "Jake"   # CHANGE ME: child's name, spoken in the alarm
+
+automation:
+  - id: hydroshield_trigger
+    alias: Hydro-Shield - trigger alarm
+    mode: single
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.child_tag_estimated_distance     # CHANGE ME: from the iBeacon Tracker integration
+        above: input_number.hydroshield_distance_limit_m
+        for: "00:00:05"
+        id: distance
+      - trigger: state
+        entity_id: device_tracker.child_tag                # CHANGE ME: same tag's tracker
+        to: not_home
+        id: away
+      - trigger: state
+        entity_id: sensor.child_tag_estimated_distance
+        to: unavailable
+        for: "00:00:30"
+        id: silent
+      - trigger: state
+        entity_id:                                         # CHANGE ME: your door sensors
+          - binary_sensor.front_door
+          - binary_sensor.back_door
+          - binary_sensor.pool_gate
+        to: "on"
+        id: door
+    conditions:
+      - condition: state
+        entity_id: input_boolean.hydroshield_armed
+        state: "on"
+      - condition: state
+        entity_id: input_boolean.hydroshield_alarm
+        state: "off"
+    actions:
+      - action: input_boolean.turn_on
+        target: { entity_id: input_boolean.hydroshield_alarm }
+      - variables:
+          child: "{{ states('sensor.hydro_shield_child_name') }}"
+          why: >-
+            {% if trigger.id == 'door' %}{{ state_attr(trigger.entity_id, 'friendly_name') }} opened
+            {% elif trigger.id == 'silent' %}tag stopped reporting. Check {{ child }} now
+            {% else %}{{ child }} has left the house{% endif %}
+      - repeat:
+          while:
+            - condition: state
+              entity_id: input_boolean.hydroshield_alarm
+              state: "on"
+            - condition: template
+              value_template: "{{ repeat.index <= 40 }}"
+          sequence:
+            - action: script.hydroshield_announce
+              data:
+                message: "Alert. {{ why }}. Search the water first."
+            - delay: "00:00:15"
+
+  - id: hydroshield_ack
+    alias: Hydro-Shield - acknowledged from phone
+    triggers:
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data: { action: HYDROSHIELD_FOUND }
+    actions:
+      - action: input_boolean.turn_off
+        target: { entity_id: input_boolean.hydroshield_alarm }
+
+script:
+  hydroshield_announce:
+    alias: Hydro-Shield - announce everywhere
+    mode: parallel
+    fields:
+      message: { description: What to say }
+    sequence:
+      # Phones: critical alert that sounds even on silent (iPhone) / alarm channel (Android)
+      - action: notify.notify                              # CHANGE ME if you want specific phones, e.g. notify.mobile_app_marks_iphone
+        data:
+          title: "HYDRO-SHIELD ALARM"
+          message: "{{ message }}"
+          data:
+            push: { sound: { name: default, critical: 1, volume: 1.0 } }
+            ttl: 0
+            priority: high
+            channel: alarm_stream
+            actions:
+              - action: HYDROSHIELD_FOUND
+                title: "Found - stop alarm"
+      # Speakers and TVs: every media player Home Assistant knows about
+      - action: tts.speak
+        target:
+          entity_id: tts.google_translate_en_com
+        data:
+          media_player_entity_id: "{{ states.media_player | map(attribute='entity_id') | list }}"
+          message: "{{ message }}"
+          cache: true
