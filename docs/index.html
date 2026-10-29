@@ -33,6 +33,8 @@ input[type=text]{flex:1 1 280px;min-width:0;font:inherit;padding:11px 14px;borde
 select{font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
 button{font:700 1rem var(--body);padding:11px 18px;border-radius:8px;border:0;background:var(--water);color:#fff;cursor:pointer}
 button.ghost{background:transparent;color:var(--water);border:1px solid var(--water)}
+button.ghost[aria-pressed="true"]{background:var(--danger);border-color:var(--danger);color:#fff}
+.leaflet-container.marking{cursor:crosshair}
 button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid var(--pool);outline-offset:2px}
 .status{font-size:.92rem;color:var(--muted);min-height:1.4em}
 .status.err{color:var(--danger)}
@@ -74,6 +76,7 @@ footer a{color:var(--water)}
     <select id="rad" aria-label="Search radius"><option value="300">300 m</option><option value="500" selected>500 m</option><option value="800">800 m</option><option value="1200">1.2 km</option></select>
     <button type="submit">Map the water</button>
     <button type="button" class="ghost" id="here">Use map center</button>
+    <button type="button" class="ghost" id="mark" aria-pressed="false">+ Mark water I know about</button>
   </form>
   <div class="status" id="st" role="status" aria-live="polite"></div>
 
@@ -86,12 +89,12 @@ footer a{color:var(--water)}
         <div><b id="s-close">–</b><small>within 150 m</small></div>
       </div>
       <ol id="list" aria-label="Water hazards, nearest first"></ol>
-      <p class="note"><b>Map data has gaps.</b> Backyard pools and new retention ponds are often missing. Walk your street and add anything you see to OpenStreetMap, and treat this list as a starting point, not a guarantee.</p>
+      <p class="note"><b>Map data has gaps.</b> New retention ponds and some pools are missing. Use <b>Mark water I know about</b> to add anything you see on your street; it is saved on this device only. Treat this list as a starting point, not a guarantee.</p>
     </div>
   </div>
 
   <footer>
-    <span>Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Address search by Nominatim.</span>
+    <span>Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records: Pasco County Property Appraiser (public records, refreshed weekly). Address search by Nominatim.</span>
     <span>Not a substitute for supervision, door alarms or swim lessons.</span>
     <a href="https://github.com/Give-Kids-A-Voice/Project-Hydro-Shield" target="_blank" rel="noopener">Source on GitHub</a>
   </footer>
@@ -170,22 +173,61 @@ footer a{color:var(--water)}
     map.fitBounds(L.circle([home.lat, home.lon], { radius: rad }).addTo(map).getBounds(), { padding: [10, 10] });
   }
 
-  async function run(home) {
-    var rad = +$('#rad').value;
-    try {
-      status('Loading water data around ' + (home.label || 'the map center') + '…');
-      var data = await overpass(home.lat, home.lon, rad);
-      var hz = HydroShield.hazards(data, home.lat, home.lon, rad);
-      render(home, rad, hz);
-      status(hz.length + ' water hazards within ' + fmt(rad) + '. Nearest first.');
-    } catch (e) { status(e.message, true); }
+  // County pool records, pre-cut into 0.05-degree tiles: data/pools/<lat>_<lon>.json = [[lat, lon, kind], ...]
+  async function countyPools(lat, lon, rad) {
+    var dLat = rad / 110574, dLon = rad / (111320 * Math.cos(lat * Math.PI / 180)), keys = {}, out = [];
+    for (var y = Math.floor((lat - dLat) * 20); y <= Math.floor((lat + dLat) * 20); y++)
+      for (var x = Math.floor((lon - dLon) * 20); x <= Math.floor((lon + dLon) * 20); x++) keys[y + '_' + x] = 1;
+    await Promise.all(Object.keys(keys).map(function (k) {
+      return fetch('data/pools/' + k + '.json').then(function (r) { return r.ok ? r.json() : []; }).then(function (a) { out = out.concat(a); }).catch(function () {});
+    }));
+    return out;
   }
+  var MARK_KEY = 'hydroshield-marked';
+  function marks() { try { return JSON.parse(localStorage.getItem(MARK_KEY) || '[]'); } catch (_) { return []; } }
+  function saveMarks(m) { try { localStorage.setItem(MARK_KEY, JSON.stringify(m)); } catch (_) {} }
+  function asElements(points, tagFor) {
+    return points.map(function (p, i) { return { type: 'node', id: tagFor.prefix + i, lat: p[0], lon: p[1], tags: tagFor.tags(p) }; });
+  }
+  var lastHome = null;
+  async function run(home) {
+    lastHome = home;
+    var rad = +$('#rad').value;
+    status('Loading water data around ' + (home.label || 'the map center') + '…');
+    var res = await Promise.allSettled([overpass(home.lat, home.lon, rad), countyPools(home.lat, home.lon, rad)]);
+    var osm = res[0].status === 'fulfilled' ? res[0].value : { elements: [] };
+    var pools = res[1].status === 'fulfilled' ? res[1].value : [];
+    var els = osm.elements.slice();
+    els = els.concat(asElements(pools, { prefix: 'cp', tags: function (p) { return { leisure: 'swimming_pool', name: 'Pool (county record)', access: 'private' }; } }));
+    els = els.concat(asElements(marks(), { prefix: 'mk', tags: function (p) { return p[2] === 'pool' ? { leisure: 'swimming_pool', name: 'Pool you marked' } : { natural: 'water', water: 'pond', name: 'Water you marked' }; } }));
+    var hz = HydroShield.hazards({ elements: els }, home.lat, home.lon, rad);
+    render(home, rad, hz);
+    var bits = [hz.length + ' water hazards within ' + fmt(rad) + ', nearest first.'];
+    if (pools.length) bits.push(pools.length + ' pools from county records.');
+    if (res[0].status !== 'fulfilled') bits.push('Lakes, ponds and canals could not load right now (map data servers busy); try again in a minute.');
+    status(bits.join(' '), res[0].status !== 'fulfilled');
+  }
+  var marking = false;
+  $('#mark').onclick = function () {
+    marking = !marking; this.setAttribute('aria-pressed', marking); this.textContent = marking ? 'Tap the map where the water is…' : '+ Mark water I know about';
+    map.getContainer().classList.toggle('marking', marking);
+  };
   $('#f').addEventListener('submit', async function (e) {
     e.preventDefault(); var q = $('#addr').value.trim(); if (!q) { status('Enter a home address first.', true); return; }
     try { status('Finding the address…'); var g = await geocode(q); run(g); } catch (err) { status(err.message, true); }
   });
   $('#here').onclick = function () { var c = map.getCenter(); run({ lat: c.lat, lon: c.lng, label: 'the map center' }); };
-  map.on('click', function (e) { run({ lat: e.latlng.lat, lon: e.latlng.lng, label: 'the point you clicked' }); });
+  map.on('click', function (e) {
+    if (!marking) { run({ lat: e.latlng.lat, lon: e.latlng.lng, label: 'the point you clicked' }); return; }
+    var kind = 'pond';
+    var pop = L.popup().setLatLng(e.latlng).setContent('<div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" data-k="pool">Pool</button><button type="button" data-k="pond">Pond / other water</button></div>').openOn(map);
+    pop.getElement().addEventListener('click', function (ev) {
+      var k = ev.target.getAttribute && ev.target.getAttribute('data-k'); if (!k) return;
+      var m = marks(); m.push([+e.latlng.lat.toFixed(6), +e.latlng.lng.toFixed(6), k]); saveMarks(m);
+      map.closePopup(); $('#mark').click(); if (lastHome) run(lastHome);
+      status('Saved on this device. It now counts in your water list.');
+    });
+  });
   $('#f').requestSubmit();
 })();
 </script>
