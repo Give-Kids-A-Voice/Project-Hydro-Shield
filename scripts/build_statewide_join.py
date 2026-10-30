@@ -3,6 +3,7 @@ Florida Department of Revenue statewide parcel centroids (FDOR Cadastral Centroi
 
   python3 scripts/build_statewide_join.py sarasota RAW_DIR docs/data/pools   # RAW_DIR/SFYI.txt from SCPA_Detailed_Data.zip
   python3 scripts/build_statewide_join.py duval    RAW_DIR docs/data/pools   # RAW_DIR/*.txt pipe-delimited roll (record 00011 = extra features)
+  python3 scripts/build_statewide_join.py citrus   RAW_DIR docs/data/pools   # RAW_DIR/VD_PARCELDATA.CSV (POOLFLG = Y)
 Writes [lat, lon] (pool) or [lat, lon, "spa"] into the shared tiles, deduped. No owner data.
 """
 import csv, glob, json, math, os, sys, time, urllib.parse, urllib.request, collections
@@ -10,6 +11,7 @@ csv.field_size_limit(10**8)
 URL = 'https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/Florida_Statewide_Parcel_Centroid_Version/FeatureServer/0/query'
 county, raw, out = sys.argv[1], sys.argv[2], sys.argv[3]
 kind = {}
+key_field = 'PARCEL_ID'
 
 if county == 'sarasota':
     co = 68
@@ -26,6 +28,11 @@ elif county == 'duval':
             if len(p) < 5: continue
             code, desc = p[3].strip().upper(), p[4].upper()
             if code.startswith('POL') or 'POOL' in desc: kind[p[1].strip()] = 'pool'
+elif county == 'citrus':
+    # VD_PARCELDATA.CSV from the Citrus County Property Appraiser vendor dump (Google Drive folder linked on citruspa.org Downloads).
+    co, key_field = 19, 'ALT_KEY'
+    for r in csv.DictReader(open(os.path.join(raw, 'VD_PARCELDATA.CSV'), encoding='latin-1')):
+        if (r.get('POOLFLG') or '').strip().upper() == 'Y': kind[r['ALTKEY'].strip()] = 'pool'
 else:
     sys.exit('unknown county')
 print(county, len(kind), 'parcels with a pool or spa', file=sys.stderr)
@@ -50,12 +57,12 @@ oids = sorted(q({'where': f'CO_NO={co}', 'returnIdsOnly': 'true'}).get('objectId
 count = len(oids)
 def page(i):
     lo, hi = oids[i], oids[min(i + 1999, count - 1)]
-    return q({'where': f'CO_NO={co} AND OBJECTID>={lo} AND OBJECTID<={hi}', 'outFields': 'PARCEL_ID', 'outSR': 4326}).get('features', [])
+    return q({'where': f'CO_NO={co} AND OBJECTID>={lo} AND OBJECTID<={hi}', 'outFields': key_field, 'outSR': 4326}).get('features', [])
 tiles = collections.defaultdict(list); n = collections.Counter(); seen = set()
 with ThreadPoolExecutor(4) as ex:
     for feats in ex.map(page, range(0, count, 2000)):
         for f in feats:
-            g = f.get('geometry') or {}; pid = norm(f['attributes'].get('PARCEL_ID') or '')
+            g = f.get('geometry') or {}; pid = norm(str(f['attributes'].get(key_field) or ''))
             if 'x' not in g or pid not in want: continue
             lat, lon = round(g['y'], 5), round(g['x'], 5)
             if (lat, lon) in seen: continue
