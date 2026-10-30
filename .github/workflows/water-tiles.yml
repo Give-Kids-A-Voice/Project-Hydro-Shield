@@ -47,6 +47,13 @@ jobs:
           # Refresh Hillsborough pools from the HCPA parcel service (nightly-updated); keep committed data if it fails
           python3 scripts/build_hillsborough_pools.py _site/data/pools || echo "HCPA refresh skipped"
           python3 scripts/build_arcgis_pools.py _site/data/pools manatee orange lee || echo "ArcGIS county refresh skipped"
+          pip install -q pyshp pyproj
+          ( mkdir -p raw/polk && cd raw/polk \
+            && curl -sfL -o misc.zip "https://www.polkflpa.gov/FTPPage/downloader.ashx?filename=ftp_misc.zip&dir=%5CAppraisalData%5C" \
+            && curl -sfL -o parcel.zip "https://www.polkflpa.gov/FTPPage/downloader.ashx?filename=parcel.zip&dir=%5CGISData%5C" \
+            && unzip -oq misc.zip && unzip -oq parcel.zip ) && python3 scripts/build_shapefile_pools.py polk raw/polk _site/data/pools || echo "Polk refresh skipped"
+          ( mkdir -p raw/hernando && cd raw/hernando && curl -sfL -O https://hernandocountypa-florida.us/download/FEAT.ZIP && unzip -oq FEAT.ZIP ) \
+            && python3 scripts/build_shapefile_pools.py hernando raw/hernando _site/data/pools || echo "Hernando refresh skipped"
           rm -rf _site/data/water && mkdir -p _site/data && cp -r water-tiles _site/data/water
           du -sh _site
       - uses: actions/upload-pages-artifact@v3
