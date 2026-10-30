@@ -45,10 +45,12 @@ def norm(s): return ''.join(ch for ch in s if ch.isalnum())
 want = {norm(k): v for k, v in kind.items()}
 # Download every parcel point in the county (paged), then match locally. Much faster than ID lookups.
 from concurrent.futures import ThreadPoolExecutor
-count = q({'where': f'CO_NO={co}', 'returnCountOnly': 'true'})['count']
-def page(off):
-    return q({'where': f'CO_NO={co}', 'outFields': 'PARCEL_ID', 'outSR': 4326, 'resultOffset': off,
-              'resultRecordCount': 2000, 'orderByFields': 'OBJECTID'}).get('features', [])
+# Page by OBJECTID ranges (offset paging fails on some large counties)
+oids = sorted(q({'where': f'CO_NO={co}', 'returnIdsOnly': 'true'}).get('objectIds') or [])
+count = len(oids)
+def page(i):
+    lo, hi = oids[i], oids[min(i + 1999, count - 1)]
+    return q({'where': f'CO_NO={co} AND OBJECTID>={lo} AND OBJECTID<={hi}', 'outFields': 'PARCEL_ID', 'outSR': 4326}).get('features', [])
 tiles = collections.defaultdict(list); n = collections.Counter(); seen = set()
 with ThreadPoolExecutor(4) as ex:
     for feats in ex.map(page, range(0, count, 2000)):
