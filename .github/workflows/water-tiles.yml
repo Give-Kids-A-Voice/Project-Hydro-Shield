@@ -54,6 +54,12 @@ jobs:
             && unzip -oq misc.zip && unzip -oq parcel.zip ) && python3 scripts/build_shapefile_pools.py polk raw/polk _site/data/pools || echo "Polk refresh skipped"
           ( mkdir -p raw/hernando && cd raw/hernando && curl -sfL -O https://hernandocountypa-florida.us/download/FEAT.ZIP && unzip -oq FEAT.ZIP ) \
             && python3 scripts/build_shapefile_pools.py hernando raw/hernando _site/data/pools || echo "Hernando refresh skipped"
+          ( mkdir -p raw/sarasota && cd raw/sarasota && curl -sfL -O https://www.sarasotapropertyappraiser.gov/downloads/SCPA_Detailed_Data.zip && unzip -oq SCPA_Detailed_Data.zip SFYI.txt ) \
+            && python3 scripts/build_statewide_join.py sarasota raw/sarasota _site/data/pools || echo "Sarasota refresh skipped"
+          ( mkdir -p raw/duval && cd raw/duval \
+            && u=$(curl -s -A "Mozilla/5.0" https://www.jacksonville.gov/departments/property-appraiser/data-offerings | grep -oE 'getContentAsset/[^"]+REAL-ESTATE-PIPE-DELIMITED-TEXT-CERTIFIED[^"]+' | head -1 | sed 's/&amp;/\&/g') \
+            && curl -sfL -A "Mozilla/5.0" -o re.zip "https://www.jacksonville.gov/$u" && unzip -oq re.zip ) \
+            && python3 scripts/build_statewide_join.py duval raw/duval _site/data/pools || echo "Duval refresh skipped"
           rm -rf _site/data/water && mkdir -p _site/data && cp -r water-tiles _site/data/water
           du -sh _site
       - uses: actions/upload-pages-artifact@v3
