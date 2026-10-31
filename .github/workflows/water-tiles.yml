@@ -15,7 +15,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v4
       - name: Week key
@@ -60,6 +60,12 @@ jobs:
             && u=$(curl -s -A "Mozilla/5.0" https://www.jacksonville.gov/departments/property-appraiser/data-offerings | grep -oE 'getContentAsset/[^"]+REAL-ESTATE-PIPE-DELIMITED-TEXT-CERTIFIED[^"]+' | head -1 | sed 's/&amp;/\&/g') \
             && curl -sfL -A "Mozilla/5.0" -o re.zip "https://www.jacksonville.gov/$u" && unzip -oq re.zip ) \
             && python3 scripts/build_statewide_join.py duval raw/duval _site/data/pools || echo "Duval refresh skipped"
+          # Further counties from free Property Appraiser files, placed via FDOR parcel centroids (Osceola is the annual certified roll)
+          sudo apt-get install -y -qq mdbtools || true
+          for c in volusia seminole osceola lake marion charlotte stjohns alachua martin leon; do
+            ( scripts/fetch_county_raw.sh "$c" "raw/$c" >/dev/null && python3 scripts/build_statewide_join.py "$c" "raw/$c" _site/data/pools ) || echo "$c refresh skipped"
+            rm -rf "raw/$c"
+          done
           rm -rf _site/data/water && mkdir -p _site/data && cp -r water-tiles _site/data/water
           du -sh _site
       - uses: actions/upload-pages-artifact@v3
