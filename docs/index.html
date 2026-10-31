@@ -79,7 +79,7 @@ footer a{color:var(--water)}
   </header>
 
   <form id="f">
-    <input type="text" id="addr" autocomplete="street-address" placeholder="Street address, city, state" aria-label="Home address" value="Land O' Lakes, FL">
+    <input type="text" id="addr" autocomplete="street-address" placeholder="Street address, city, state" aria-label="Home address" value="">
     <select id="rad" aria-label="Search radius"><option value="300">300 m</option><option value="500" selected>500 m</option><option value="800">800 m</option><option value="1200">1.2 km</option></select>
     <button type="submit">Map the water</button>
     <button type="button" class="ghost" id="here">Use map center</button>
@@ -95,13 +95,13 @@ footer a{color:var(--water)}
         <div><b id="s-count">–</b><small>water hazards found</small></div>
         <div><b id="s-close">–</b><small>within 150 m</small></div>
       </div>
-      <ol id="list" aria-label="Water hazards, nearest first"></ol>
+      <ol id="list" aria-label="Water hazards, nearest first"><li style="cursor:default"><span class="sev s1"></span><div>Enter an address or click a home on the map. The nearest pools, ponds and canals will be listed here, closest first.</div><span></span></li></ol>
       <p class="note"><b>Map data has gaps.</b> New retention ponds and some pools are missing. Use <b>Mark water I know about</b> to add anything you see on your street; it is saved on this device only. Treat this list as a starting point, not a guarantee.</p>
     </div>
   </div>
 
   <footer>
-    <span>Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>, the Alachua, Charlotte, Citrus, Duval, Hernando, Lake, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns and Volusia County Property Appraisers, Lee County GIS, and Florida Department of Revenue parcel locations (public records). Address search by Esri and Nominatim.</span>
+    <span>Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>, the Alachua, Charlotte, Citrus, Duval, Hernando, Lake, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns and Volusia County Property Appraisers, Lee County GIS, and Florida Department of Revenue parcel locations (public records). Address search and satellite imagery by Esri; address search fallback by Nominatim.</span>
     <span>Not a substitute for supervision, door alarms or swim lessons.</span>
     <a href="found.html">Make an "If found" card for a shoe tag</a>
     <a href="https://github.com/Give-Kids-A-Voice/Project-Hydro-Shield" target="_blank" rel="noopener">Source on GitHub</a>
@@ -120,8 +120,14 @@ function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json
   var $ = function (s) { return document.querySelector(s); };
   var css = getComputedStyle(document.documentElement);
   var C = function (n) { return css.getPropertyValue(n).trim(); };
-  var map = L.map('map', { zoomControl: true }).setView([28.2189, -82.4573], 14);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  // Opens on all of Florida. No location is ever requested from the visitor.
+  var map = L.map('map', { zoomControl: true }).setView([27.9, -83.2], 7);
+  var streets = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  var satellite = L.layerGroup([
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Imagery © Esri, Maxar, Earthstar Geographics' }),
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, opacity: .8 })
+  ]);
+  L.control.layers({ 'Map': streets, 'Satellite': satellite }, null, { position: 'topright', collapsed: false }).addTo(map);
   var layer = L.layerGroup().addTo(map), shapes = {};
 
   var OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
@@ -229,9 +235,16 @@ function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json
     return points.map(function (p, i) { return { type: 'node', id: tagFor.prefix + i, lat: p[0], lon: p[1], tags: tagFor.tags(p) }; });
   }
   var lastHome = null;
+  // Street address for a clicked point (Esri, results not stored)
+  async function reverse(lat, lon) {
+    try {
+      var r = await fetch('https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/reverseGeocode?f=json&location=' + lon + ',' + lat);
+      var j = await r.json(); return j.address && (j.address.LongLabel || j.address.Match_addr);
+    } catch (e) { return null; }
+  }
   async function run(home) {
     lastHome = home;
-    if (run.n = (run.n || 0) + 1, run.n > 1) hsCount('search');
+    hsCount('search');
     var rad = +$('#rad').value;
     status('Loading water data around ' + (home.label || 'the map center') + '…');
     var res = await Promise.allSettled([
@@ -270,8 +283,18 @@ function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json
     try { status('Finding the address…'); var g = await geocode(q); run(g); } catch (err) { status(err.message, true); }
   });
   $('#here').onclick = function () { var c = map.getCenter(); run({ lat: c.lat, lon: c.lng, label: 'the map center' }); };
-  map.on('click', function (e) {
-    if (!marking) { run({ lat: e.latlng.lat, lon: e.latlng.lng, label: 'the point you clicked' }); return; }
+  // Wait briefly so a double-click (zoom) doesn't also count as "search here"
+  var clickTimer = null;
+  map.on('dblclick', function () { clearTimeout(clickTimer); clickTimer = null; });
+  map.on('click', function (ev) { clearTimeout(clickTimer); clickTimer = setTimeout(function () { onMapClick(ev); }, 300); });
+  function onMapClick(e) {
+    if (!marking) {
+      var pt = { lat: e.latlng.lat, lon: e.latlng.lng, label: 'the point you clicked' };
+      $('#addr').value = 'Point on map (' + pt.lat.toFixed(5) + ', ' + pt.lon.toFixed(5) + ')';
+      run(pt);
+      reverse(pt.lat, pt.lon).then(function (a) { if (a && lastHome === pt) { $('#addr').value = a; } });
+      return;
+    }
     var kind = 'pond';
     var pop = L.popup().setLatLng(e.latlng).setContent('<div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" data-k="pool">Pool</button><button type="button" data-k="pond">Pond / other water</button><button type="button" data-k="ours">Our pool (OK with an adult)</button></div>').openOn(map);
     pop.getElement().addEventListener('click', function (ev) {
@@ -280,9 +303,9 @@ function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json
       map.closePopup(); $('#mark').click(); if (lastHome) run(lastHome);
       status(k === 'ours' ? 'Saved as your pool: shown in green, still covered by the alarm when he is alone or at night.' : 'Saved on this device. It now counts in your water list.');
     });
-  });
+  }
   hsCount('view');
-  $('#f').requestSubmit();
+  status('Type a home address above, or click a home on the map.');
 })();
 </script>
 </body>
