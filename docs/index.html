@@ -111,6 +111,11 @@ footer a{color:var(--water)}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="hazards.js"></script>
 <script>
+// Anonymous usage count for Give Kids A Voice: sends only an event name, nothing about the visitor or address.
+function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json/hydroshield/v1/hit?e='+e);}catch(_){}}
+</script>
+
+<script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
   var css = getComputedStyle(document.documentElement);
@@ -226,6 +231,7 @@ footer a{color:var(--water)}
   var lastHome = null;
   async function run(home) {
     lastHome = home;
+    if (run.n = (run.n || 0) + 1, run.n > 1) hsCount('search');
     var rad = +$('#rad').value;
     status('Loading water data around ' + (home.label || 'the map center') + '…');
     var res = await Promise.allSettled([
@@ -275,6 +281,7 @@ footer a{color:var(--water)}
       status(k === 'ours' ? 'Saved as your pool: shown in green, still covered by the alarm when he is alone or at night.' : 'Saved on this device. It now counts in your water list.');
     });
   });
+  hsCount('view');
   $('#f').requestSubmit();
 })();
 </script>
