@@ -79,3 +79,60 @@ For the Cloudflare-blocked counties (Brevard, St. Lucie, Clay, Indian River, Col
 
 ### To merge
 Review `counties-next` (one commit on top of main: 0bd0667), then fast-forward main to it. The deploy workflow will run. After it finishes, re-check the reference addresses and one new-county address, such as Port Charlotte, FL.
+
+## 2026-11-01 (Sunday)
+
+**Bottom line:** The live site is healthy and nothing was rolled back. No new county data was added today: every remaining county is still blocked or needs a request. Collier is close. Its free files now load and allow automated downloads, but the one file with pools would not download from this network today. The code to add Collier is ready on `counties-next`.
+
+### Main changed after Saturday's report
+Main now has 9 commits that were not there when Saturday's report was written. They were all pushed by `mal247` on 2026-10-31 from a Claude session (`session_013QLbgwVTHWdyVf5LuiY5Gj`):
+- The 10 Saturday counties (9b9310b)
+- Map changes and anonymous usage counts
+- Southern California and San Diego water and pools
+- A fix for a leftover blue circle on the map (cd5495c)
+
+All 5 deploy runs for these commits succeeded. Because all of this is now on main, `counties-next` was fast-forwarded to main (cd5495c) before today's work.
+
+### 1. Health check (live site)
+- https://hydroshield.givekidsavoice.org/ returns 200 and contains "Every pond, canal and pool".
+- The latest `water-tiles.yml` run is #26, for cd5495c, run 2026-11-01 02:14 UTC. It succeeded.
+- The page no longer runs a search when it opens (changed in 83da5de), so there was no opening search to wait for. Each address was searched directly.
+- The usage-count beacon was blocked during these tests, so the checks did not add to the site's stats.
+
+| Address | Expected | Live |
+|---|---|---|
+| Ashmonte Drive, Land O Lakes, FL | ~2329 | 2329 |
+| Westchase, Tampa, FL | ~3096 | 3096 |
+| Largo, FL | ~2696 | 2696 |
+| Sarasota, FL | ~3101 | 3101 |
+| Mandarin, Jacksonville, FL | ~648 | 648 |
+| 110 N Apopka Ave, Inverness, FL 34450 | ~592 | 592 |
+| Port Charlotte, FL (a Saturday county, now live) | 5844 on the branch Saturday | 5847 |
+
+- **Rollbacks:** none needed and none made.
+
+### 2. Counties
+**Added:** none. No data in `docs/data/pools` changed, so no points could be lost and the live counts are unaffected.
+
+**Collier: code ready, data not yet downloaded**
+- collierappraiser.com is reachable again; on Saturday it returned "access restricted".
+- Its Data Downloads page and Terms of Use say scripts, scheduled tasks and AI tools may download the data files. The limit is each file once per day per network, and each link expires after 10 minutes.
+- `int_buildingcodes_csv.zip` downloaded fine. It lists the pool codes (POOL-1..9, POOL10..27, POOLV1..9, NVP1..9) and the spa codes (SPA, SPA-1..7).
+- `int_buildings_csv.zip` (16.3 MB, "Buildings and extra features") returned 410 "link expired" twice, even on a link made seconds earlier. The likeliest reason is that the daily limit had already been used on this shared cloud network.
+- I stopped after the second try. The site warns that repeat requests past the limit can get the network blocked. I did not try the "All (CSV)" bundle to get around the limit.
+- **Ready on the branch:**
+  - `scripts/fetch_county_raw.sh collier` loads a fresh link and downloads both files.
+  - `scripts/build_statewide_join.py collier` reads the files and joins them to the FDOR parcel locations. Collier is CO_NO 21, with 368,325 FDOR parcels and 11-digit parcel IDs that match the Collier files.
+  - I tested the parser end to end on test rows with real Collier parcel IDs: 2 of 2 matched and were placed.
+  - The file layout doesn't say which column holds the feature code, so the parser checks both BldgClass and CalcCode and prints how many matches each one gives.
+- **Not done yet:** Collier is not in the workflow or `index.html`.
+- **To finish it:** download `int_buildings_csv.zip` once by hand from https://www.collierappraiser.com/Main_Data/DataDownloads.html, or let the next run try again on a new day. Then build, run the regression tests, and add Collier to the coverage line, the credits and the weekly loop.
+
+**Re-checked today, still blocked:**
+- **Palm Beach:** the county GIS parcel layers (`gis.pbcgov.org` Parcels/PARCELS, PAO_PARCELS_WM) have no pool field. To get pool data, request it from pa-pubsvc@pbcpao.gov, 561-355-2881, form https://pbcpao.gov/pdf/DataRunRequest.pdf.
+- **Indian River:** the CAMA download is linked from https://www.ircpa.org/site-links/downloads/ (`beacon.schneidercorp.com/.../DataDownload.zip`). It still gets a Cloudflare challenge (`cf-mitigated: challenge`), so I did not use it. You can download it by hand in a browser, or use the form https://www.ircpa.org/media/14214/website-request-public-record-information.pdf.
+- **Brevard** (bcpao.us), **St. Lucie** (paslc.gov) and **Clay** (ccpao.com) still return 403 from Cloudflare.
+  - Brevard's county GIS (`gis.brevardfl.gov`) has no parcel or pool services.
+  - Contacts are unchanged from Saturday's table.
+- **Broward, Okaloosa, Escambia, Bay, Santa Rosa:** I did not re-check them. Saturday's findings and contacts still apply.
+  - Broward's only pool layer is the "internal" BCPA service, which I am not using without permission.

@@ -31,6 +31,13 @@ case "$county" in
     get master.zip https://www.pamartinfl.gov/tools-resources/data-downloads/46-real-master/download && unzip -joq master.zip && rm master.zip ;;
   leon)      # Leon County Property Appraiser building data (OTHERFEAT.TXT)
     curl -sfL --retry 3 -o b.zip https://search.leonpa.gov/Downloads/BuildingData.zip && unzip -joq b.zip '*OTHERFEAT.TXT' && rm b.zip ;;
+  collier)   # Collier County Property Appraiser data downloads. The site allows automated download of these files,
+             # each file ONCE PER DAY per network; links are made per visit and expire after 10 minutes, so scrape fresh.
+    page=$(curl -sf -A "$UA" -c cj -b cj https://www.collierappraiser.com/Main_Data/DataDownloads.html)
+    for f in int_buildings_csv.zip int_buildingcodes_csv.zip; do
+      h=$(printf '%s' "$page" | grep -oE "downloadgdfile\.asp\?[^\"]*file=$f[^\"]*" | head -1 | sed 's/&amp;/\&/g')
+      [ -n "$h" ] && curl -sfL -A "$UA" -c cj -b cj -o "$f" "https://www.collierappraiser.com/Main_Data/$h" && unzip -joq "$f" '*.csv' && rm "$f"
+    done; rm -f cj ;;
   *) echo "unknown county $county" >&2; exit 2 ;;
 esac
 # `a && b` chains do not trip set -e, so check the expected outputs explicitly
@@ -38,6 +45,6 @@ need() { for f in "$@"; do [ -s "$f" ] || { echo "$county: missing $f" >&2; exit
 case "$county" in
   volusia) need VOLUSIA_POOLS_EXTRACT.csv ;; seminole) need ExtraFeature.csv ;; osceola) need vw_mdxfob.csv ;;
   lake) need xfob.txt ;; marion) need TRIM*MCPA*Data.csv ;; charlotte) need cd.txt ;; stjohns) need xfob.csv ;;
-  alachua) need ImprvDetails.txt ;; martin) need real_sfyi.csv real_master.csv ;; leon) need OTHERFEAT.TXT ;;
+  alachua) need ImprvDetails.txt ;; collier) need int_buildings.csv int_buildingcodes.csv ;; martin) need real_sfyi.csv real_master.csv ;; leon) need OTHERFEAT.TXT ;;
 esac
 ls -la
