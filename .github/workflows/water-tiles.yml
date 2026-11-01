@@ -1,12 +1,33 @@
 name: Build water tiles and publish site
+# Data refresh schedule: each source is refreshed ONCE A MONTH, on its own day, so no single run
+# hits many public servers at once. The workflow runs daily; a day with no slot does nothing.
+#   Day 1  Florida water (OpenStreetMap)        Day 11 Volusia        Day 21 California parcel pools
+#   Day 2  Southern California water + OSM pools Day 12 Seminole              (San Diego County + Palm Desert)
+#   Day 3  Hillsborough                          Day 13 Osceola
+#   Day 4  Manatee                               Day 14 Lake
+#   Day 5  Orange (FL)                           Day 15 Marion
+#   Day 6  Lee                                   Day 16 Charlotte
+#   Day 7  Polk                                  Day 17 St. Johns
+#   Day 8  Hernando                              Day 18 Alachua
+#   Day 9  Sarasota                              Day 19 Martin
+#   Day 10 Duval                                 Day 20 Leon
+# Pasco, Pinellas, Citrus and St. Lucie are refreshed by hand from files the county sends or the owner downloads.
+# Refreshed pool tiles are committed back to docs/data/pools, so pushes never re-download pool data.
+# Water tiles live in the Actions cache (one entry per region per month). A push reuses the newest cached
+# tiles and only rebuilds a region if no cached copy exists. A failed refresh keeps the previous data.
 on:
   push:
     branches: [main]
   schedule:
-    - cron: '17 7 * * 1'   # Mondays 07:17 UTC: refresh Florida and Southern California water from OpenStreetMap
-  workflow_dispatch: {}
+    - cron: '23 7 * * *'   # daily 07:23 UTC; see the slot table above
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: 'Refresh one slot now (fl-water, socal-water, hillsborough, manatee, orange, lee, polk, hernando, sarasota, duval, volusia, seminole, osceola, lake, marion, charlotte, stjohns, alachua, martin, leon, ca-parcels) or leave blank to just publish'
+        required: false
+        default: ''
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 concurrency:
@@ -18,19 +39,49 @@ jobs:
     timeout-minutes: 100
     steps:
       - uses: actions/checkout@v4
-      - name: Week key
-        id: wk
-        run: echo "key=water-$(date -u +%G-%V)-${{ hashFiles('scripts/build_water_tiles.py', 'scripts/build_osm_region.py') }}" >> "$GITHUB_OUTPUT"
-      - name: Reuse this week's tiles
-        id: cache
-        uses: actions/cache@v4
+      - name: Pick today's slot
+        id: s
+        run: |
+          slot=""
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            case "$(date -u +%-d)" in
+              1) slot=fl-water;; 2) slot=socal-water;; 3) slot=hillsborough;; 4) slot=manatee;; 5) slot=orange;;
+              6) slot=lee;; 7) slot=polk;; 8) slot=hernando;; 9) slot=sarasota;; 10) slot=duval;;
+              11) slot=volusia;; 12) slot=seminole;; 13) slot=osceola;; 14) slot=lake;; 15) slot=marion;;
+              16) slot=charlotte;; 17) slot=stjohns;; 18) slot=alachua;; 19) slot=martin;; 20) slot=leon;;
+              21) slot=ca-parcels;;
+            esac
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            slot="${{ github.event.inputs.slot }}"
+          fi
+          run=true
+          [ "${{ github.event_name }}" = "schedule" ] && [ -z "$slot" ] && run=false
+          echo "slot=$slot" >> "$GITHUB_OUTPUT"; echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+          echo "Slot: ${slot:-none} (run=$run)"
+      - name: Restore Florida water tiles
+        if: steps.s.outputs.run == 'true'
+        id: fl
+        uses: actions/cache/restore@v4
+        with:
+          path: fl-water
+          key: fl-water-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_water_tiles.py') }}
+          restore-keys: |
+            fl-water-
+      - name: Restore Southern California water tiles
+        if: steps.s.outputs.run == 'true'
+        id: sc
+        uses: actions/cache/restore@v4
         with:
           path: |
-            water-tiles
+            socal-water
             socal-pools
-          key: ${{ steps.wk.outputs.key }}
+          key: socal-water-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_water_tiles.py', 'scripts/build_osm_region.py') }}
+          restore-keys: |
+            socal-water-
       - name: Build Florida water tiles
-        if: steps.cache.outputs.cache-hit != 'true'
+        id: flb
+        if: steps.s.outputs.run == 'true' && (steps.s.outputs.slot == 'fl-water' || steps.fl.outputs.cache-matched-key == '')
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
           pip install -q shapely
@@ -41,57 +92,101 @@ jobs:
             w/waterway=canal,ditch,drain,stream,river,riverbank \
             nw/amenity=fountain -o water.osm.pbf
           osmium export water.osm.pbf -f geojsonseq --add-unique-id=type_id -o water.geojsonseq
-          python3 scripts/build_water_tiles.py water.geojsonseq water-tiles
-          du -sh water-tiles
+          rm -rf fl-water.new && python3 scripts/build_water_tiles.py water.geojsonseq fl-water.new
+          rm -rf fl-water && mv fl-water.new fl-water && du -sh fl-water
+      - name: Save Florida water tiles
+        if: steps.flb.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: fl-water
+          key: fl-water-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_water_tiles.py') }}-${{ github.run_id }}
       - name: Build Southern California water tiles and OSM pool points
-        if: steps.cache.outputs.cache-hit != 'true'
-        continue-on-error: true   # never block the Florida deploy
+        id: scb
+        if: steps.s.outputs.run == 'true' && (steps.s.outputs.slot == 'socal-water' || steps.sc.outputs.cache-matched-key == '')
+        continue-on-error: true   # never block the deploy; the previous tiles stay
         run: |
           # LA, Orange, Ventura, Riverside, San Bernardino, San Diego. Same water tags and tile scheme as Florida; pools become points.
           pip install -q osmium shapely
           curl -sSfL -o socal.osm.pbf https://download.geofabrik.de/north-america/us/california/socal-latest.osm.pbf
           python3 scripts/build_osm_region.py filter socal.osm.pbf socal-water.osm.pbf
           rm -f socal.osm.pbf
-          python3 scripts/build_osm_region.py export socal-water.osm.pbf socal-water.geojsonseq socal-pools
-          python3 scripts/build_water_tiles.py socal-water.geojsonseq water-tiles
-          du -sh water-tiles socal-pools
+          rm -rf socal-water.new socal-pools.new
+          python3 scripts/build_osm_region.py export socal-water.osm.pbf socal-water.geojsonseq socal-pools.new
+          python3 scripts/build_water_tiles.py socal-water.geojsonseq socal-water.new
+          rm -rf socal-water socal-pools && mv socal-water.new socal-water && mv socal-pools.new socal-pools
+          du -sh socal-water socal-pools
+      - name: Save Southern California water tiles
+        if: steps.scb.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            socal-water
+            socal-pools
+          key: socal-water-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_water_tiles.py', 'scripts/build_osm_region.py') }}-${{ github.run_id }}
+      - name: Refresh today's pool source
+        id: ref
+        if: steps.s.outputs.run == 'true' && steps.s.outputs.slot != '' && steps.s.outputs.slot != 'fl-water'
+        continue-on-error: true   # a failed refresh keeps the committed tiles
+        run: |
+          P=docs/data/pools; slot="${{ steps.s.outputs.slot }}"
+          case "$slot" in
+            socal-water)
+              # Fresh OSM pool points for Southern California, then re-apply the parcel records so they win over OSM duplicates
+              [ -d socal-pools ] && cp -r socal-pools/. $P/ && python3 scripts/build_ca_parcel_pools.py $P ;;
+            hillsborough) python3 scripts/build_hillsborough_pools.py $P ;;
+            manatee|orange|lee) python3 scripts/build_arcgis_pools.py $P "$slot" ;;
+            polk)
+              pip install -q pyshp pyproj
+              mkdir -p raw/polk && ( cd raw/polk \
+                && curl -sfL -o misc.zip "https://www.polkflpa.gov/FTPPage/downloader.ashx?filename=ftp_misc.zip&dir=%5CAppraisalData%5C" \
+                && curl -sfL -o parcel.zip "https://www.polkflpa.gov/FTPPage/downloader.ashx?filename=parcel.zip&dir=%5CGISData%5C" \
+                && unzip -oq misc.zip && unzip -oq parcel.zip ) && python3 scripts/build_shapefile_pools.py polk raw/polk $P ;;
+            hernando)
+              pip install -q pyshp pyproj
+              mkdir -p raw/hernando && ( cd raw/hernando && curl -sfL -O https://hernandocountypa-florida.us/download/FEAT.ZIP && unzip -oq FEAT.ZIP ) \
+                && python3 scripts/build_shapefile_pools.py hernando raw/hernando $P ;;
+            sarasota)
+              mkdir -p raw/sarasota && ( cd raw/sarasota && curl -sfL -O https://www.sarasotapropertyappraiser.gov/downloads/SCPA_Detailed_Data.zip && unzip -oq SCPA_Detailed_Data.zip SFYI.txt ) \
+                && python3 scripts/build_statewide_join.py sarasota raw/sarasota $P ;;
+            duval)
+              mkdir -p raw/duval && ( cd raw/duval \
+                && u=$(curl -s -A "Mozilla/5.0" https://www.jacksonville.gov/departments/property-appraiser/data-offerings | grep -oE 'getContentAsset/[^"]+REAL-ESTATE-PIPE-DELIMITED-TEXT-CERTIFIED[^"]+' | head -1 | sed 's/&amp;/\&/g') \
+                && curl -sfL -A "Mozilla/5.0" -o re.zip "https://www.jacksonville.gov/$u" && unzip -oq re.zip ) \
+                && python3 scripts/build_statewide_join.py duval raw/duval $P ;;
+            volusia|seminole|osceola|lake|marion|charlotte|stjohns|alachua|martin|leon)
+              [ "$slot" = stjohns ] && sudo apt-get install -y -qq mdbtools
+              scripts/fetch_county_raw.sh "$slot" "raw/$slot" >/dev/null && python3 scripts/build_statewide_join.py "$slot" "raw/$slot" $P ;;
+            ca-parcels) python3 scripts/build_ca_parcel_pools.py $P ;;
+            *) echo "Unknown slot $slot"; exit 1 ;;
+          esac
+          rm -rf raw
+      - name: Save refreshed pool tiles to the repository
+        if: steps.ref.outcome == 'success'
+        run: |
+          git config user.name "Hydro-Shield data refresh"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data/pools
+          if git diff --cached --quiet; then echo "No pool changes"; exit 0; fi
+          git commit -q -m "Monthly data refresh: ${{ steps.s.outputs.slot }} pool records"
+          git pull -q --rebase origin main && git push -q origin HEAD:main || echo "Could not save refreshed tiles; this run still publishes them"
       - name: Assemble site
+        if: steps.s.outputs.run == 'true'
         run: |
           mkdir -p _site && cp -r docs/. _site/
-          # Refresh Hillsborough pools from the HCPA parcel service (nightly-updated); keep committed data if it fails
-          python3 scripts/build_hillsborough_pools.py _site/data/pools || echo "HCPA refresh skipped"
-          python3 scripts/build_arcgis_pools.py _site/data/pools manatee orange lee || echo "ArcGIS county refresh skipped"
-          pip install -q pyshp pyproj
-          ( mkdir -p raw/polk && cd raw/polk \
-            && curl -sfL -o misc.zip "https://www.polkflpa.gov/FTPPage/downloader.ashx?filename=ftp_misc.zip&dir=%5CAppraisalData%5C" \
-            && curl -sfL -o parcel.zip "https://www.polkflpa.gov/FTPPage/downloader.ashx?filename=parcel.zip&dir=%5CGISData%5C" \
-            && unzip -oq misc.zip && unzip -oq parcel.zip ) && python3 scripts/build_shapefile_pools.py polk raw/polk _site/data/pools || echo "Polk refresh skipped"
-          ( mkdir -p raw/hernando && cd raw/hernando && curl -sfL -O https://hernandocountypa-florida.us/download/FEAT.ZIP && unzip -oq FEAT.ZIP ) \
-            && python3 scripts/build_shapefile_pools.py hernando raw/hernando _site/data/pools || echo "Hernando refresh skipped"
-          ( mkdir -p raw/sarasota && cd raw/sarasota && curl -sfL -O https://www.sarasotapropertyappraiser.gov/downloads/SCPA_Detailed_Data.zip && unzip -oq SCPA_Detailed_Data.zip SFYI.txt ) \
-            && python3 scripts/build_statewide_join.py sarasota raw/sarasota _site/data/pools || echo "Sarasota refresh skipped"
-          ( mkdir -p raw/duval && cd raw/duval \
-            && u=$(curl -s -A "Mozilla/5.0" https://www.jacksonville.gov/departments/property-appraiser/data-offerings | grep -oE 'getContentAsset/[^"]+REAL-ESTATE-PIPE-DELIMITED-TEXT-CERTIFIED[^"]+' | head -1 | sed 's/&amp;/\&/g') \
-            && curl -sfL -A "Mozilla/5.0" -o re.zip "https://www.jacksonville.gov/$u" && unzip -oq re.zip ) \
-            && python3 scripts/build_statewide_join.py duval raw/duval _site/data/pools || echo "Duval refresh skipped"
-          # Further counties from free Property Appraiser files, placed via FDOR parcel centroids (Osceola is the annual certified roll)
-          sudo apt-get install -y -qq mdbtools || true
-          for c in volusia seminole osceola lake marion charlotte stjohns alachua martin leon; do
-            ( scripts/fetch_county_raw.sh "$c" "raw/$c" >/dev/null && python3 scripts/build_statewide_join.py "$c" "raw/$c" _site/data/pools ) || echo "$c refresh skipped"
-            rm -rf "raw/$c"
-          done
-          rm -rf _site/data/water && mkdir -p _site/data && cp -r water-tiles _site/data/water
-          # Fresh Southern California OSM pool points over the committed copy (kept if this week's build had none)
-          [ -d socal-pools ] && cp -r socal-pools/. _site/data/pools/ || echo "SoCal pool refresh skipped"
-          # San Diego County (SanGIS/SANDAG parcels, Assessor POOL flag) and Palm Desert parcel pool records, after the OSM copy
-          # so they replace near-duplicate OSM points; on failure the committed tiles stay as they are
-          python3 scripts/build_ca_parcel_pools.py _site/data/pools || echo "California parcel pool refresh skipped"
+          rm -rf _site/data/water && mkdir -p _site/data/water
+          [ -d fl-water ] && cp -r fl-water/. _site/data/water/
+          [ -d socal-water ] && cp -r socal-water/. _site/data/water/ || echo "No Southern California water tiles this run"
+          ls _site/data/water | wc -l
           du -sh _site
       - uses: actions/upload-pages-artifact@v3
+        if: steps.s.outputs.run == 'true'
         with:
           path: _site
+    outputs:
+      run: ${{ steps.s.outputs.run }}
   deploy:
     needs: build
+    if: needs.build.outputs.run == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

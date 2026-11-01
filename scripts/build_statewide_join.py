@@ -4,7 +4,7 @@ Florida Department of Revenue statewide parcel centroids (FDOR Cadastral Centroi
   python3 scripts/build_statewide_join.py sarasota RAW_DIR docs/data/pools   # RAW_DIR/SFYI.txt from SCPA_Detailed_Data.zip
   python3 scripts/build_statewide_join.py duval    RAW_DIR docs/data/pools   # RAW_DIR/*.txt pipe-delimited roll (record 00011 = extra features)
   python3 scripts/build_statewide_join.py citrus   RAW_DIR docs/data/pools   # RAW_DIR/VD_PARCELDATA.CSV (POOLFLG = Y)
-  python3 scripts/build_statewide_join.py <volusia|seminole|osceola|lake|marion|charlotte|stjohns|alachua|martin|leon> RAW_DIR docs/data/pools
+  python3 scripts/build_statewide_join.py <volusia|seminole|osceola|lake|marion|charlotte|stjohns|alachua|martin|leon|stlucie> RAW_DIR docs/data/pools
       # RAW_DIR filled by: scripts/fetch_county_raw.sh <county> RAW_DIR
 Writes [lat, lon] (pool) or [lat, lon, "spa"] into the shared tiles, deduped. No owner data.
 """
@@ -103,6 +103,13 @@ else:
             c, d = p[2].strip().upper(), p[3].strip().upper()
             if c == 'OOL' and (not d or 'POOL' in d): mark(p[0], 'pool')
             elif c == 'SPA': mark(p[0], 'spa')
+    elif county == 'stlucie':
+        co = 66   # SFYI.csv (St. Lucie County Property Appraiser free data download): SWAV/SWHI/SWLO residential pool,
+                  # CSAV/CSHI commercial pool, SPA spa/hot tub. Keyed by ParcelID (same format as FDOR PARCEL_ID).
+        for r in csv.DictReader(open(os.path.join(raw, 'SFYI.csv'), encoding='latin-1')):
+            c = r['SFYI'].strip().upper()
+            if c in ('SWAV', 'SWHI', 'SWLO', 'CSAV', 'CSHI'): mark(r['ParcelID'], 'pool')
+            elif c == 'SPA': mark(r['ParcelID'], 'spa')
     else:
         sys.exit('unknown county')
 print(county, len(kind), 'parcels with a pool or spa', file=sys.stderr)
