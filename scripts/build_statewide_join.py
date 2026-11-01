@@ -4,7 +4,7 @@ Florida Department of Revenue statewide parcel centroids (FDOR Cadastral Centroi
   python3 scripts/build_statewide_join.py sarasota RAW_DIR docs/data/pools   # RAW_DIR/SFYI.txt from SCPA_Detailed_Data.zip
   python3 scripts/build_statewide_join.py duval    RAW_DIR docs/data/pools   # RAW_DIR/*.txt pipe-delimited roll (record 00011 = extra features)
   python3 scripts/build_statewide_join.py citrus   RAW_DIR docs/data/pools   # RAW_DIR/VD_PARCELDATA.CSV (POOLFLG = Y)
-  python3 scripts/build_statewide_join.py <volusia|seminole|osceola|lake|marion|charlotte|stjohns|alachua|martin|leon|stlucie|brevard> RAW_DIR docs/data/pools
+  python3 scripts/build_statewide_join.py <volusia|seminole|osceola|lake|marion|charlotte|stjohns|alachua|martin|leon|stlucie|brevard|indianriver> RAW_DIR docs/data/pools
       # RAW_DIR filled by: scripts/fetch_county_raw.sh <county> RAW_DIR
 Writes [lat, lon] (pool) or [lat, lon, "spa"] into the shared tiles, deduped. No owner data.
 """
@@ -111,6 +111,17 @@ else:
             c = r['ExtraFeatureCode'].strip().upper()
             if c[:4] in ('POLR', 'POLV', 'POLC') or c == 'XPOOL': mark(r['PropertyID'], 'pool')
             elif c[:4] == 'SPAR' or c in ('SPACM', 'XSPAS'): mark(r['PropertyID'], 'spa')
+    elif county == 'indianriver':
+        co, key_field = 41, 'ALT_KEY'   # DataDownload.zip (Indian River County Property Appraiser): WebExport_IMPROVEMENT_DETAIL_*.TXT,
+        # tab-delimited, no header. Column 1 = property ID (FDOR ALT_KEY), column 2 = improvement ID, column 5 = feature code.
+        # SPCN/SPFG* concrete or fiberglass pool, AASPCN* commercial pool; SPAA/SPAF in-ground spa. (SP20-SP60 are screened porches.)
+        for fp in glob.glob(os.path.join(raw, 'WebExport_IMPROVEMENT_DETAIL_*.TXT')):
+            for line in open(fp, encoding='latin-1'):
+                p = line.split('\t')
+                if len(p) < 5: continue
+                c = p[4].strip().upper()
+                if c == 'SPCN' or c.startswith('SPFG') or c.startswith('AASPCN'): mark(p[0], 'pool')
+                elif c in ('SPAA', 'SPAF'): mark(p[0], 'spa')
     elif county == 'stlucie':
         co = 66   # SFYI.csv (St. Lucie County Property Appraiser free data download): SWAV/SWHI/SWLO residential pool,
                   # CSAV/CSHI commercial pool, SPA spa/hot tub. Keyed by ParcelID (same format as FDOR PARCEL_ID).
