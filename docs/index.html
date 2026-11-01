@@ -196,7 +196,7 @@ function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json
     $('#s-near').textContent = risky.length ? fmt(risky[0].dist) : 'none';
     $('#s-count').textContent = risky.length;
     $('#s-close').textContent = risky.filter(function (h) { return h.dist <= 150; }).length;
-    map.fitBounds(L.circle([home.lat, home.lon], { radius: rad }).addTo(map).getBounds(), { padding: [10, 10] });
+    map.fitBounds(L.latLng(home.lat, home.lon).toBounds(rad * 2), { padding: [10, 10] });
   }
 
   // County pool records, pre-cut into 0.05-degree tiles: data/pools/<lat>_<lon>.json = [[lat, lon, kind], ...]
