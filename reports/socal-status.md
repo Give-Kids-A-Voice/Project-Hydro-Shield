@@ -59,3 +59,43 @@ City-name searches land on a downtown point, so few hazards inside 500 m is expe
 ### 5. Next: aerial-imagery pool detection (not implemented)
 - Imagery: USDA NAIP (0.6 m, 4-band incl. near-infrared, public domain) via the AWS Open Data bucket `naip-analytic` / Microsoft Planetary Computer STAC (free, no key for reads); USGS/CA state orthos as backup.
 - Approach: tile NAIP around residential parcels; first pass with a spectral rule (pool water is bright blue with low NIR: high blue/NIR ratio, NDWI) to get candidates; then a small CNN/segmentation model trained on the existing Florida county pool points as labels (Florida NAIP + county records = free training set); output points into the same pool tiles with kind `"ai"`, labelled "Pool (detected from aerial photo)"; dedupe against OSM points; spot-check precision on known neighbourhoods before publishing.
+
+## San Diego County (2026-10-31, branch `sandiego`)
+
+**Bottom line:** San Diego County added to the SoCal OSM water/pool build, plus real Assessor pool records for all of San Diego County (SanGIS/SANDAG parcels, POOL = 'Y') and for the City of Palm Desert (Riverside County CREST tax data published by the city). Florida pool counts unchanged.
+
+### Sources
+- **Used:** SanGIS/SANDAG regional parcel layer, public ArcGIS service `geo.sandag.org/server/rest/services/Hosted/Parcels/FeatureServer/0` (no login). 109,149 parcel records with POOL = 'Y' -> 108,619 distinct parcel polygons (stacked condo APNs counted once), placed at parcel centroids.
+- **Used:** City of Palm Desert `Palm_Desert_Parcels_CREST` (public ArcGIS Online FeatureServer, HAS_POOL = '1'): 9,434 pool parcels.
+- **Found, skipped:** LA County GIS (Incapsula bot protection, as before). No public pool flag found for Orange, Ventura, Riverside (county-wide) or San Bernardino assessor data in an ArcGIS Online search. User-uploaded AGOL snapshots of SanGIS parcels not used (the SANDAG-hosted copy is the official, current one). data.sandiegocounty.gov had no pool dataset.
+- New script `scripts/build_ca_parcel_pools.py`; runs weekly in the workflow's Assemble step after the OSM pool copy (`|| echo` keeps committed tiles if the fetch fails or returns implausibly few records).
+
+### OSM vs records
+OSM pool points within ~30 m of a record point are dropped as duplicates (a parcel centroid sits 10-25 m from the pool, so a 4 m test would not catch them); others (hotel/public pools, unflagged parcels) are kept. San Diego: 3,308 OSM dropped, 2,106 kept in those tiles; Palm Desert: 65 dropped.
+
+| County | Pool records | OSM pool points |
+|---|---|---|
+| San Diego | 108,619 | 2,129 |
+| Riverside | 9,434 (Palm Desert only) | 5,875 |
+| Los Angeles | - | 29,385 |
+| Orange | - | 5,727 |
+| San Bernardino | - | 3,773 |
+| Ventura | - | 1,931 |
+| County-line buffer | - | 24 |
+
+Water: 60,956 features, 2,569 tiles (43 MB, CI-built, not committed) for the six counties.
+
+### Regression (Playwright, local docs/ + locally built water tiles, 500 m)
+Florida pools: Land O Lakes 2329, Westchase 3096, Largo 2696, Sarasota 3101, Mandarin 648, Inverness 592, identical to live (checked live first). SoCal OSM counts unchanged: Santa Monica 47, Pasadena 1938, Irvine 176, Thousand Oaks 73, Riverside 70, Rancho Cucamonga 145, Long Beach 24.
+
+| Place | Hazards within 500 m | Pool records (loaded tiles) | OSM pools (loaded tiles) |
+|---|---|---|---|
+| Oceanside, CA 92056 | 54 | 2434 | 24 |
+| Carlsbad | 62 | 1758 | 11 |
+| Escondido | 10 | 1491 | 38 |
+| Chula Vista | 15 | 1241 | 20 |
+| La Mesa | 17 | 2255 | 18 |
+| Downtown San Diego | 12 | 341 | 74 |
+| Palm Desert (Riverside Co.) | 61 | 3490 | 45 |
+
+Hazard counts include pool records inside the radius. Not verified: the CI step itself (Geofabrik socal-latest), which only runs on main.

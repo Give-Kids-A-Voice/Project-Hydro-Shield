@@ -1,13 +1,13 @@
 """Water features and pool points for a region outside Florida, straight from an OpenStreetMap extract.
 
-Used for Southern California (Los Angeles, Orange, Ventura, Riverside and San Bernardino counties), where
-assessors publish no pool flag. Pure Python (pyosmium + shapely), so it runs the same in CI and locally.
+Used for Southern California (Los Angeles, Orange, Ventura, Riverside, San Bernardino and San Diego counties), where most
+assessors publish no pool flag (San Diego pool records come from scripts/build_ca_parcel_pools.py). Pure Python (pyosmium + shapely), so it runs the same in CI and locally.
 
   python3 scripts/build_osm_region.py filter  socal-latest.osm.pbf  socal-water.osm.pbf
   python3 scripts/build_osm_region.py export  socal-water.osm.pbf  socal-water.geojsonseq  pools-out-dir
 
 filter: keeps the same water tags as the Florida build (plus pool nodes/relations and county boundaries), with the nodes they need.
-export: clips to the five counties and writes
+export: clips to the six counties and writes
   - a GeoJSON sequence in `osmium export` form for scripts/build_water_tiles.py (pools left out: they become points instead,
     so one pool is never counted twice), and
   - pool points into <pools-out-dir>/<floor(lat*20)>_<floor(lon*20)>.json as [lat, lon, "osm"], deduplicated
@@ -19,7 +19,8 @@ from shapely.geometry import shape
 from shapely.ops import unary_union
 from shapely.prepared import prep
 
-COUNTIES = {'Los Angeles County', 'Orange County', 'Ventura County', 'Riverside County', 'San Bernardino County'}
+COUNTIES = {'Los Angeles County', 'Orange County', 'Ventura County', 'Riverside County', 'San Bernardino County',
+            'San Diego County'}
 WATERWAY_LINES = {'canal', 'ditch', 'drain', 'stream', 'river'}
 
 
