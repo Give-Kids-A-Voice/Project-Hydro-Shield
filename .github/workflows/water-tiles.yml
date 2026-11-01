@@ -47,7 +47,7 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         continue-on-error: true   # never block the Florida deploy
         run: |
-          # LA, Orange, Ventura, Riverside, San Bernardino. Same water tags and tile scheme as Florida; pools become points.
+          # LA, Orange, Ventura, Riverside, San Bernardino, San Diego. Same water tags and tile scheme as Florida; pools become points.
           pip install -q osmium shapely
           curl -sSfL -o socal.osm.pbf https://download.geofabrik.de/north-america/us/california/socal-latest.osm.pbf
           python3 scripts/build_osm_region.py filter socal.osm.pbf socal-water.osm.pbf
@@ -83,6 +83,9 @@ jobs:
           rm -rf _site/data/water && mkdir -p _site/data && cp -r water-tiles _site/data/water
           # Fresh Southern California OSM pool points over the committed copy (kept if this week's build had none)
           [ -d socal-pools ] && cp -r socal-pools/. _site/data/pools/ || echo "SoCal pool refresh skipped"
+          # San Diego County (SanGIS/SANDAG parcels, Assessor POOL flag) and Palm Desert parcel pool records, after the OSM copy
+          # so they replace near-duplicate OSM points; on failure the committed tiles stay as they are
+          python3 scripts/build_ca_parcel_pools.py _site/data/pools || echo "California parcel pool refresh skipped"
           du -sh _site
       - uses: actions/upload-pages-artifact@v3
         with:

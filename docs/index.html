@@ -75,7 +75,7 @@ footer a{color:var(--water)}
     <span class="eyebrow">Project Hydro-Shield · Give Kids A Voice</span>
     <h1>Every pond, canal and pool near your home</h1>
     <p class="lede">Enter a home address. We outline the water within walking distance and rank it by how close the edge is, so you know where to search first if your child wanders.</p>
-    <p class="lede" style="font-size:.9rem">Lakes, ponds and canals: all of Florida, plus Los Angeles, Orange, Ventura, Riverside and San Bernardino counties in Southern California. Florida pool records: Alachua, Charlotte, Citrus, Duval, Hernando, Hillsborough, Lake, Lee, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns and Volusia counties, with more coming. Pool coverage in California is partial (OpenStreetMap): many backyard pools are not mapped yet. Free, no sign-up, nothing you type is saved.</p>
+    <p class="lede" style="font-size:.9rem">Lakes, ponds and canals: all of Florida, plus Los Angeles, Orange, Ventura, Riverside, San Bernardino and San Diego counties in Southern California. Florida pool records: Alachua, Charlotte, Citrus, Duval, Hernando, Hillsborough, Lake, Lee, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns and Volusia counties, with more coming. California pool records: San Diego County and the City of Palm Desert. Elsewhere in Southern California pool coverage is partial (OpenStreetMap): many backyard pools are not mapped yet. Free, no sign-up, nothing you type is saved.</p>
   </header>
 
   <form id="f">
@@ -101,7 +101,7 @@ footer a{color:var(--water)}
   </div>
 
   <footer>
-    <span>Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>, the Alachua, Charlotte, Citrus, Duval, Hernando, Lake, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns and Volusia County Property Appraisers, Lee County GIS, and Florida Department of Revenue parcel locations (public records). Southern California pools and water: OpenStreetMap contributors (partial pool coverage). Address search and satellite imagery by Esri; address search fallback by Nominatim.</span>
+    <span>Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>, the Alachua, Charlotte, Citrus, Duval, Hernando, Lake, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns and Volusia County Property Appraisers, Lee County GIS, and Florida Department of Revenue parcel locations (public records). Southern California water: OpenStreetMap contributors. San Diego County pool records: <a href="https://www.sangis.org/" target="_blank" rel="noopener">SanGIS</a>/SANDAG regional parcel data (San Diego County Assessor). Palm Desert pool records: City of Palm Desert parcel data (Riverside County property tax records). Other Southern California pools: OpenStreetMap contributors (partial coverage). Address search and satellite imagery by Esri; address search fallback by Nominatim.</span>
     <span>Not a substitute for supervision, door alarms or swim lessons.</span>
     <a href="found.html">Make an "If found" card for a shoe tag</a>
     <a href="https://github.com/Give-Kids-A-Voice/Project-Hydro-Shield" target="_blank" rel="noopener">Source on GitHub</a>
@@ -271,7 +271,7 @@ function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json
     var bits = [hz.length + ' water hazards within ' + fmt(rad) + ', nearest first.'];
     var nOsm = pools.filter(function (p) { return p[2] === 'osm'; }).length;
     if (pools.length - nOsm) bits.push((pools.length - nOsm) + ' pools from county records.');
-    if (nOsm) bits.push(nOsm + ' pools from OpenStreetMap (California pool coverage is partial).');
+    if (nOsm) bits.push(nOsm + ' pools from OpenStreetMap (pool coverage here is partial).');
     if (res[0].status !== 'fulfilled') bits.push('Lakes, ponds and canals could not load right now (map data servers busy); try again in a minute.');
     status(bits.join(' '), res[0].status !== 'fulfilled');
   }
