@@ -136,15 +136,17 @@ function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json
 </script>
 
 <script>
-// County editions: /?county=<slug> (or the short link /<slug>/) opens on that county with its credit line.
+// County editions (slugs are county-state, e.g. hillsborough-fl): /?county=<slug> (or the short link /<slug>/) opens on that county with its credit line.
 // Nothing about the visitor is sent anywhere; the slug is remembered on this device only so the installed app reopens on the same county.
 var HS_PARTNERS = {
-  hillsborough: { name: 'Hillsborough County', state: 'FL', center: [27.93, -82.35], zoom: 10,
+  'hillsborough-fl': { name: 'Hillsborough County', state: 'FL', center: [27.93, -82.35], zoom: 10,
     credit: 'Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>.' }
 };
+var HS_PARTNER_ALIASES = { hillsborough: 'hillsborough-fl' }; // early link, kept working
 var HS_PARTNER = (function () {
   var q = new URLSearchParams(location.search).get('county'), k = q && q.toLowerCase().replace(/[^a-z-]/g, '');
-  try { if (k && HS_PARTNERS[k]) localStorage.setItem('hs-county', k); else if (!k && ((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true)) k = localStorage.getItem('hs-county'); } catch (e) {}
+  try { if (k && (HS_PARTNERS[k] || HS_PARTNER_ALIASES[k])) localStorage.setItem('hs-county', k); else if (!k && ((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true)) k = localStorage.getItem('hs-county'); } catch (e) {}
+  if (k && HS_PARTNER_ALIASES[k]) k = HS_PARTNER_ALIASES[k];
   var p = k && HS_PARTNERS[k]; if (p) p.slug = k; return p || null;
 })();
 </script>
