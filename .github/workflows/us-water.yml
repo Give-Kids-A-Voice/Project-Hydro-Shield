@@ -1,0 +1,105 @@
+name: Nationwide water tiles (Cloudflare R2)
+# DRAFT on branch uswater - not active until merged and the owner adds the R2 secrets.
+# Rebuilds ~2 states a day from Geofabrik state extracts (schedule: scripts/us_states.json), so every state is
+# refreshed once a month. Build jobs run in parallel (one per state); a single sync job then uploads them one state
+# at a time, so two neighbours never merge a shared border tile at the same moment.
+# A state whose build fails uploads nothing: last month's tiles stay live.
+# Backfill: run manually with states = all (51 jobs, 4 at a time, about 3-4 hours) or a list like "GA MI OH".
+on:
+  schedule:
+    - cron: '41 9 * * *'   # daily 09:41 UTC, apart from the Pages workflow's 07:23 slot
+  workflow_dispatch:
+    inputs:
+      states:
+        description: 'State codes to rebuild now, space-separated (e.g. "GA MI"), or "all"'
+        required: true
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: us-water
+  cancel-in-progress: false
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      states: ${{ steps.p.outputs.states }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: p
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, os, datetime
+          cfg = json.load(open('scripts/us_states.json'))
+          want = "${{ github.event.inputs.states }}".split()
+          if want == ['all']: want = sorted(cfg['slug'])
+          if not want and "${{ github.event_name }}" == 'schedule':
+              want = cfg['day'].get(str(datetime.datetime.utcnow().day), [])
+          print('states=' + json.dumps([{'code': c, 'slug': cfg['slug'][c]} for c in want if c in cfg['slug']]))
+          EOF
+  build:
+    needs: plan
+    if: needs.plan.outputs.states != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 4            # be polite to Geofabrik
+      matrix:
+        st: ${{ fromJSON(needs.plan.outputs.states) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ${{ matrix.st.code }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
+          pip install -q osmium shapely
+          G=https://download.geofabrik.de/north-america/us/${{ matrix.st.slug }}
+          curl -sSfL --retry 3 -o in.osm.pbf $G-latest.osm.pbf
+          curl -sSfL --retry 3 -o state.poly $G.poly
+          ls -l in.osm.pbf
+          # osmium-tool filter is ~10x faster than the pyosmium filter (5-6 min for a 350 MB state measured locally)
+          osmium tags-filter in.osm.pbf \
+            nwr/natural=water nwr/landuse=basin,reservoir \
+            nwr/leisure=swimming_pool w/leisure=water_park \
+            w/waterway=canal,ditch,drain,stream,river,riverbank \
+            nw/amenity=fountain -o water.osm.pbf
+          rm in.osm.pbf
+          python3 scripts/build_osm_state.py export water.osm.pbf water.geojsonseq
+          rm water.osm.pbf
+          python3 scripts/build_water_tiles.py water.geojsonseq tiles --simplify 3
+          rm water.geojsonseq
+          python3 scripts/pack_tiles.py tiles packed/${{ matrix.st.code }} --pools docs/data/pools
+          cp state.poly packed/${{ matrix.st.code }}.poly
+          du -sh tiles packed
+      - uses: actions/upload-artifact@v4
+        with:
+          name: water-${{ matrix.st.code }}
+          path: packed
+          retention-days: 3
+  sync:
+    needs: [plan, build]
+    if: always() && needs.plan.outputs.states != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: water-*
+          path: packed
+          merge-multiple: true
+      - name: Upload changed tiles to R2, one state at a time
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          pip install -q boto3 shapely
+          [ -d packed ] || { echo "No state built successfully today"; exit 0; }
+          fail=0
+          for d in packed/*/; do
+            st=$(basename "$d")
+            python3 scripts/sync_tiles_r2.py "$st" "$d" "packed/$st.poly" || { echo "::warning::$st not uploaded; old tiles kept"; fail=1; }
+          done
+          exit $fail

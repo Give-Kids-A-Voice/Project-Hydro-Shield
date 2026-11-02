@@ -1,0 +1,165 @@
+{
+ "_doc": "Nationwide water tiles: Geofabrik slug per state and the day of the month each is rebuilt (.github/workflows/us-water.yml). Day 29-31: no rebuild.",
+ "slug": {
+  "CA": "california",
+  "DE": "delaware",
+  "TX": "texas",
+  "RI": "rhode-island",
+  "FL": "florida",
+  "DC": "district-of-columbia",
+  "NY": "new-york",
+  "VT": "vermont",
+  "PA": "pennsylvania",
+  "NH": "new-hampshire",
+  "NC": "north-carolina",
+  "CT": "connecticut",
+  "GA": "georgia",
+  "HI": "hawaii",
+  "OH": "ohio",
+  "ME": "maine",
+  "IL": "illinois",
+  "WY": "wyoming",
+  "MI": "michigan",
+  "ND": "north-dakota",
+  "VA": "virginia",
+  "SD": "south-dakota",
+  "WA": "washington",
+  "MT": "montana",
+  "TN": "tennessee",
+  "NV": "nevada",
+  "MN": "minnesota",
+  "ID": "idaho",
+  "WI": "wisconsin",
+  "UT": "utah",
+  "NJ": "new-jersey",
+  "NM": "new-mexico",
+  "MA": "massachusetts",
+  "NE": "nebraska",
+  "IN": "indiana",
+  "WV": "west-virginia",
+  "MO": "missouri",
+  "KS": "kansas",
+  "LA": "louisiana",
+  "AR": "arkansas",
+  "AL": "alabama",
+  "MS": "mississippi",
+  "CO": "colorado",
+  "OK": "oklahoma",
+  "OR": "oregon",
+  "IA": "iowa",
+  "AZ": "arizona",
+  "KY": "kentucky",
+  "SC": "south-carolina",
+  "MD": "maryland",
+  "AK": "alaska"
+ },
+ "day": {
+  "1": [
+   "CA",
+   "DE"
+  ],
+  "2": [
+   "TX",
+   "RI"
+  ],
+  "3": [
+   "FL",
+   "DC"
+  ],
+  "4": [
+   "NY",
+   "VT"
+  ],
+  "5": [
+   "PA",
+   "NH"
+  ],
+  "6": [
+   "NC",
+   "CT"
+  ],
+  "7": [
+   "GA",
+   "HI"
+  ],
+  "8": [
+   "OH",
+   "ME"
+  ],
+  "9": [
+   "IL",
+   "WY"
+  ],
+  "10": [
+   "MI",
+   "ND"
+  ],
+  "11": [
+   "VA",
+   "SD"
+  ],
+  "12": [
+   "WA",
+   "MT"
+  ],
+  "13": [
+   "TN",
+   "NV"
+  ],
+  "14": [
+   "MN",
+   "ID"
+  ],
+  "15": [
+   "WI",
+   "UT"
+  ],
+  "16": [
+   "NJ",
+   "NM"
+  ],
+  "17": [
+   "MA",
+   "NE"
+  ],
+  "18": [
+   "IN",
+   "WV"
+  ],
+  "19": [
+   "MO",
+   "KS"
+  ],
+  "20": [
+   "LA",
+   "AR"
+  ],
+  "21": [
+   "AL",
+   "MS"
+  ],
+  "22": [
+   "CO",
+   "OK"
+  ],
+  "23": [
+   "OR",
+   "IA"
+  ],
+  "24": [
+   "AZ"
+  ],
+  "25": [
+   "KY"
+  ],
+  "26": [
+   "SC"
+  ],
+  "27": [
+   "MD"
+  ],
+  "28": [
+   "AK"
+  ]
+ }
+}
