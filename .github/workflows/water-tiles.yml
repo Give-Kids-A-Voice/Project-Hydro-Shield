@@ -16,6 +16,11 @@ name: Build water tiles and publish site
 #   Day 24 Texas water + OSM pools (Harris,      Day 28 Dallas (TX) pools
 #          Tarrant, Dallas, Collin)
 #   Day 25 Maricopa + Clark pools
+# Whole-state water (packed, data/water2) is built by the parallel `water2` jobs below, one job per state, each on its own day:
+#   Day 3 California  Day 5 Texas   Day 7 Arizona   Day 9 Nevada    Day 11 Georgia  Day 13 North Carolina  Day 15 South Carolina
+#   Day 17 Louisiana  Day 19 Alabama  Day 21 Mississippi  Day 23 Tennessee  Day 25 Oklahoma  Day 27 Utah
+# These run beside the main job, so they add no time to the busiest day's build. Tiles the older per-region builds above
+# already have (Florida, Southern California, Maricopa, Clark, the four Texas counties) keep coming from data/water.
 # Pasco, Pinellas, Citrus and St. Lucie are refreshed by hand from files the county sends or the owner downloads.
 # Refreshed pool tiles are committed back to docs/data/pools, so pushes never re-download pool data.
 # Water tiles live in the Actions cache (one entry per region per month). A push reuses the newest cached
@@ -28,7 +33,7 @@ on:
   workflow_dispatch:
     inputs:
       slot:
-        description: 'Refresh one slot now (fl-water, socal-water, hillsborough, manatee, orange, lee, polk, hernando, sarasota, duval, volusia, seminole, osceola, lake, marion, charlotte, stjohns, alachua, martin, leon, ca-parcels, az-water, nv-water, tx-water, az-nv-pools, harris, tarrant-collin, dallas) or leave blank to just publish'
+        description: 'Refresh one slot now (fl-water, socal-water, hillsborough, manatee, orange, lee, polk, hernando, sarasota, duval, volusia, seminole, osceola, lake, marion, charlotte, stjohns, alachua, martin, leon, ca-parcels, az-water, nv-water, tx-water, az-nv-pools, harris, tarrant-collin, dallas; whole-state water: ca-water2, tx-water2, az-water2, nv-water2, ga-water2, nc-water2, sc-water2, la-water2, al-water2, ms-water2, tn-water2, ok-water2, ut-water2) or leave blank to just publish'
         required: false
         default: ''
 permissions:
@@ -39,7 +44,94 @@ concurrency:
   group: pages
   cancel-in-progress: false
 jobs:
+  water2:
+    # Whole-state water tiles in the packed format (scripts/pack_tiles.py), one parallel job per state.
+    # Each state lives in the Actions cache (one entry per state per month); a job rebuilds only on its day,
+    # on a manual "<st>-water2" run, or when no cached copy exists. A failed rebuild keeps the previous tiles.
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { st: ca, slug: california, day: 3 }
+          - { st: tx, slug: texas, day: 5 }
+          - { st: az, slug: arizona, day: 7 }
+          - { st: nv, slug: nevada, day: 9 }
+          - { st: ga, slug: georgia, day: 11 }
+          - { st: nc, slug: north-carolina, day: 13 }
+          - { st: sc, slug: south-carolina, day: 15 }
+          - { st: la, slug: louisiana, day: 17 }
+          - { st: al, slug: alabama, day: 19 }
+          - { st: ms, slug: mississippi, day: 21 }
+          - { st: tn, slug: tennessee, day: 23 }
+          - { st: ok, slug: oklahoma, day: 25 }
+          - { st: ut, slug: utah, day: 27 }
+    steps:
+      - name: Decide
+        id: s
+        run: |
+          d=$(date -u +%-d); run=true; rebuild=false
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            [ "$d" -gt 28 ] && run=false        # same as the main job: days 29-31 do nothing
+            [ "$d" = "${{ matrix.day }}" ] && rebuild=true
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.slot }}" = "${{ matrix.st }}-water2" ]; then
+            rebuild=true
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"; echo "rebuild=$rebuild" >> "$GITHUB_OUTPUT"
+          echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        if: steps.s.outputs.run == 'true'
+      - name: Restore cached tiles
+        if: steps.s.outputs.run == 'true'
+        id: c
+        uses: actions/cache/restore@v4
+        with:
+          path: w2-${{ matrix.st }}
+          key: w2-${{ matrix.st }}-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_osm_state.py', 'scripts/build_water_tiles.py', 'scripts/pack_tiles.py') }}
+          restore-keys: |
+            w2-${{ matrix.st }}-
+      - name: Build whole-state water tiles
+        id: b
+        if: steps.s.outputs.run == 'true' && (steps.s.outputs.rebuild == 'true' || steps.c.outputs.cache-matched-key == '')
+        continue-on-error: true   # never block the deploy; the previous tiles stay
+        timeout-minutes: 80
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
+          pip install -q osmium shapely
+          curl -sSfL --retry 3 -o state.osm.pbf https://download.geofabrik.de/north-america/us/${{ matrix.slug }}-latest.osm.pbf
+          # Same water tags as Florida; pools of any kind (they become single points in the export)
+          osmium tags-filter state.osm.pbf \
+            nwr/natural=water nwr/landuse=basin,reservoir nwr/leisure=swimming_pool \
+            w/leisure=water_park w/waterway=canal,ditch,drain,stream,river,riverbank \
+            nw/amenity=fountain -o water.osm.pbf
+          rm -f state.osm.pbf
+          python3 scripts/build_osm_state.py export water.osm.pbf water.geojsonseq
+          rm -f water.osm.pbf
+          rm -rf tiles w2.new
+          python3 scripts/build_water_tiles.py water.geojsonseq tiles --simplify 5
+          rm -f water.geojsonseq
+          python3 scripts/pack_tiles.py tiles w2.new --pools docs/data/pools
+          rm -rf tiles w2-${{ matrix.st }} && mv w2.new w2-${{ matrix.st }}
+          du -sh w2-${{ matrix.st }}; ls w2-${{ matrix.st }} | wc -l
+      - name: Save tiles
+        if: steps.b.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: w2-${{ matrix.st }}
+          key: w2-${{ matrix.st }}-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_osm_state.py', 'scripts/build_water_tiles.py', 'scripts/pack_tiles.py') }}-${{ github.run_id }}
+      - name: Hand tiles to the site build
+        if: steps.s.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: w2-${{ matrix.st }}
+          path: w2-${{ matrix.st }}
+          if-no-files-found: ignore
+          retention-days: 1
+          compression-level: 0
   build:
+    needs: water2
+    if: ${{ !cancelled() }}   # a failed state never blocks the site
     runs-on: ubuntu-latest
     timeout-minutes: 100
     steps:
@@ -288,6 +380,7 @@ jobs:
               [ "$slot" = stjohns ] && sudo apt-get install -y -qq mdbtools
               scripts/fetch_county_raw.sh "$slot" "raw/$slot" >/dev/null && python3 scripts/build_statewide_join.py "$slot" "raw/$slot" $P ;;
             ca-parcels) python3 scripts/build_ca_parcel_pools.py $P ;;
+            *-water2) echo "Whole-state water is rebuilt by the water2 job" ;;
             *) echo "Unknown slot $slot"; exit 1 ;;
           esac
           rm -rf raw
@@ -300,6 +393,13 @@ jobs:
           if git diff --cached --quiet; then echo "No pool changes"; exit 0; fi
           git commit -q -m "Monthly data refresh: ${{ steps.s.outputs.slot }} pool records"
           git pull -q --rebase origin main && git push -q origin HEAD:main || echo "Could not save refreshed tiles; this run still publishes them"
+      - name: Collect whole-state water tiles
+        if: steps.s.outputs.run == 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: w2-*
+          path: w2
       - name: Assemble site
         if: steps.s.outputs.run == 'true'
         run: |
@@ -309,7 +409,9 @@ jobs:
           # Regions can share a border tile (California / Nevada), so these are merged rather than copied over each other
           dirs=""; for r in socal az nv tx; do [ -d $r-water ] && dirs="$dirs $r-water" || echo "No $r water tiles this run"; done
           [ -n "$dirs" ] && python3 scripts/merge_tiles.py _site/data/water $dirs
-          du -sh _site
+          # Whole-state packed tiles from the water2 jobs; tiles data/water already has are left out
+          if [ -d w2 ] && [ -n "$(ls w2)" ]; then python3 scripts/assemble_water2.py _site/data/water2 _site/data/water w2/*; else echo "No whole-state water this run"; fi
+          du -sh _site; find _site -type f | wc -l
       - uses: actions/upload-pages-artifact@v3
         if: steps.s.outputs.run == 'true'
         with:
@@ -318,7 +420,7 @@ jobs:
       run: ${{ steps.s.outputs.run }}
   deploy:
     needs: build
-    if: needs.build.outputs.run == 'true'
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.build.outputs.run == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages

@@ -100,11 +100,11 @@ footer a{color:var(--water)}
   </div>
 
   <section class="coverage" aria-label="Where this map works" style="margin-top:16px">
-    <p class="note"><b>Where this works.</b> Lakes, ponds and canals: all of Florida; Los Angeles, Orange, Ventura, Riverside, San Bernardino and San Diego counties in Southern California; Maricopa County, Arizona (Phoenix area); Clark County, Nevada (Las Vegas area); and Harris (Houston), Tarrant (Fort Worth/Arlington), Dallas and Collin (Plano/Frisco) counties in Texas. Florida pool records: Alachua, Brevard, Charlotte, Citrus, Collier, Duval, Hernando, Hillsborough, Indian River, Lake, Lee, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns, St. Lucie and Volusia counties, with more coming. California pool records: San Diego County, Contra Costa County, San Joaquin County and Solano County, and the cities of Palm Desert, Rancho Mirage and Pasadena (no lake, pond or canal data yet in Northern and Central California). Elsewhere in Southern California pool coverage is partial (OpenStreetMap): many backyard pools are not mapped yet. Arizona, Nevada and Texas pool records: Maricopa, Clark, Harris, Tarrant, Dallas and Collin counties. These come from assessor and appraisal-district records, which can lag a year behind new pools and do not show above-ground or unpermitted pools. Free, no sign-up, nothing you type is saved.</p>
+    <p class="note"><b>Where this works.</b> Lakes, ponds, canals and streams: all of Florida, California, Texas, Arizona, Nevada, Georgia, North Carolina, South Carolina, Louisiana, Alabama, Mississippi, Tennessee, Oklahoma and Utah. Elsewhere in the US the map asks the public OpenStreetMap servers live, which can be slow or busy. Florida pool records: Alachua, Brevard, Charlotte, Citrus, Collier, Duval, Hernando, Hillsborough, Indian River, Lake, Lee, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns, St. Lucie and Volusia counties, with more coming. California pool records: San Diego County, Contra Costa County, San Joaquin County and Solano County, and the cities of Palm Desert, Rancho Mirage and Pasadena. Elsewhere in Southern California pool coverage is partial (OpenStreetMap): many backyard pools are not mapped yet. Arizona, Nevada and Texas pool records: Maricopa, Clark, Harris, Tarrant, Dallas and Collin counties. These come from assessor and appraisal-district records, which can lag a year behind new pools and do not show above-ground or unpermitted pools. Free, no sign-up, nothing you type is saved.</p>
   </section>
 
   <footer>
-    <span>Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>, the Alachua, Brevard, Charlotte, Citrus, Collier, Duval, Hernando, Indian River, Lake, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns, St. Lucie and Volusia County Property Appraisers, Lee County GIS, and Florida Department of Revenue parcel locations (public records). Southern California water: OpenStreetMap contributors. San Diego County pool records: <a href="https://www.sangis.org/" target="_blank" rel="noopener">SanGIS</a>/SANDAG regional parcel data (San Diego County Assessor). Palm Desert pool records: City of Palm Desert parcel data (Riverside County property tax records). Rancho Mirage pool records: City of Rancho Mirage parcel data (Riverside County Assessor). Pasadena pool records: City of Pasadena land base parcel data (Los Angeles County Assessor). Contra Costa County pool records: Contra Costa County Department of Information Technology assessor parcel data. San Joaquin County pool records: San Joaquin County Assessor parcel data. Solano County pool records: Solano County public parcel data. Other Southern California pools: OpenStreetMap contributors (partial coverage). Arizona, Nevada and Texas water: OpenStreetMap contributors. Maricopa County pool records: Maricopa County Enterprise GIS parcel data. Clark County pool records: Clark County Assessor residential data and parcel map, as republished by the City of Las Vegas Office of GIS. Harris County pool records: Harris Central Appraisal District. Tarrant County pool records: Tarrant Appraisal District. Dallas County pool records: Dallas Central Appraisal District. Collin County pool records: Collin Central Appraisal District. Address search and satellite imagery by Esri; address search fallback by Nominatim.</span>
+    <span>Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>, the Alachua, Brevard, Charlotte, Citrus, Collier, Duval, Hernando, Indian River, Lake, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns, St. Lucie and Volusia County Property Appraisers, Lee County GIS, and Florida Department of Revenue parcel locations (public records). Southern California water: OpenStreetMap contributors. San Diego County pool records: <a href="https://www.sangis.org/" target="_blank" rel="noopener">SanGIS</a>/SANDAG regional parcel data (San Diego County Assessor). Palm Desert pool records: City of Palm Desert parcel data (Riverside County property tax records). Rancho Mirage pool records: City of Rancho Mirage parcel data (Riverside County Assessor). Pasadena pool records: City of Pasadena land base parcel data (Los Angeles County Assessor). Contra Costa County pool records: Contra Costa County Department of Information Technology assessor parcel data. San Joaquin County pool records: San Joaquin County Assessor parcel data. Solano County pool records: Solano County public parcel data. Other Southern California pools: OpenStreetMap contributors (partial coverage). Water for Arizona, Nevada, Texas, California, Georgia, North Carolina, South Carolina, Louisiana, Alabama, Mississippi, Tennessee, Oklahoma and Utah: OpenStreetMap contributors. Maricopa County pool records: Maricopa County Enterprise GIS parcel data. Clark County pool records: Clark County Assessor residential data and parcel map, as republished by the City of Las Vegas Office of GIS. Harris County pool records: Harris Central Appraisal District. Tarrant County pool records: Tarrant Appraisal District. Dallas County pool records: Dallas Central Appraisal District. Collin County pool records: Collin Central Appraisal District. Address search and satellite imagery by Esri; address search fallback by Nominatim.</span>
     <span>Not a substitute for supervision, door alarms or swim lessons.</span>
     <a href="found.html">Make an "If found" card for a shoe tag</a>
     <a href="https://github.com/Give-Kids-A-Voice/Project-Hydro-Shield" target="_blank" rel="noopener">Source on GitHub</a>
@@ -244,22 +244,51 @@ function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json
     }));
     return out;
   }
-  // Pre-built water tiles for Florida, Southern California, Maricopa, Clark and the four Texas counties (monthly from OpenStreetMap). Returns null when no tiles cover the area.
+  // Pre-built water tiles, two formats, both built monthly from OpenStreetMap. Returns null when neither covers the area.
+  //  data/water/<y>_<x>.json: Florida, the six Southern California counties, Maricopa, Clark and the four Texas counties
+  //    (one 0.05-degree tile per file, 5-decimal "g" rings).
+  //  data/water2/<y/4>_<x/4>.json.gz: whole states (scripts/pack_tiles.py). One gzip file holds a 4x4 block of tiles
+  //    {"<y>_<x>": [features]} with delta-encoded integer "d" rings. A block file that exists means the area is covered,
+  //    so a tile missing from it means "no mapped water there". A tile that also exists in data/water is never in water2.
+  function undelta(d) { var o = [], y = 0, x = 0; for (var i = 0; i < d.length; i += 2) { y += d[i]; x += d[i + 1]; o.push([y / 1e5, x / 1e5]); } return o; }
+  var w2cache = {};
+  function water2(b) {
+    // GitHub Pages serves .gz as a plain file (no Content-Encoding), so un-gzip here; also accept it already decoded.
+    if (!w2cache[b]) w2cache[b] = fetch('data/water2/' + b + '.json.gz').then(function (r) {
+      if (!r.ok) return null;
+      return r.arrayBuffer().then(function (buf) {
+        var u = new Uint8Array(buf);
+        if (u[0] === 0x1f && u[1] === 0x8b) return new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).json();
+        return JSON.parse(new TextDecoder().decode(u));
+      });
+    }).catch(function () { delete w2cache[b]; return null; });
+    return w2cache[b];
+  }
   async function waterTiles(lat, lon, rad) {
     var dLat = rad / 110574, dLon = rad / (111320 * Math.cos(lat * Math.PI / 180)), keys = [], els = [], hit = 0, seen = {};
     for (var y = Math.floor((lat - dLat) * 20); y <= Math.floor((lat + dLat) * 20); y++)
       for (var x = Math.floor((lon - dLon) * 20); x <= Math.floor((lon + dLon) * 20); x++) keys.push(y + '_' + x);
+    function add(a) {
+      a.forEach(function (f) {
+        var g = f.g || f.d.map(undelta);
+        // A big lake is clipped into one piece per tile; join the pieces back under one id.
+        var mem = g.map(function (r) { return { role: 'outer', geometry: r.map(function (p) { return { lat: p[0], lon: p[1] }; }) }; });
+        if (seen[f.i]) { seen[f.i].members = (seen[f.i].members || []).concat(mem); return; }
+        var el = (g.length === 1 && g[0].length === 1) ? { type: 'node', id: f.i, lat: g[0][0][0], lon: g[0][0][1], tags: f.t }
+               : { type: 'relation', id: f.i, tags: f.t, members: mem, _line: f.l };
+        // Whole-state tiles carry OpenStreetMap pool points; name them like the other OpenStreetMap pools.
+        if (f.d && el.type === 'node' && f.t.leisure === 'swimming_pool') { el.tags = Object.assign({ name: 'Pool (OpenStreetMap)' }, f.t); el._osmPool = 1; }
+        seen[f.i] = el; els.push(el);
+      });
+    }
+    var miss = [];
     await Promise.all(keys.map(function (k) {
-      return fetch('data/water/' + k + '.json').then(function (r) { if (!r.ok) return []; hit++; return r.json(); }).then(function (a) {
-        a.forEach(function (f) {
-          // A big lake is clipped into one piece per tile; join the pieces back under one id.
-          var mem = f.g.map(function (r) { return { role: 'outer', geometry: r.map(function (p) { return { lat: p[0], lon: p[1] }; }) }; });
-          if (seen[f.i]) { seen[f.i].members = seen[f.i].members.concat(mem); return; }
-          var el = (f.g.length === 1 && f.g[0].length === 1) ? { type: 'node', id: f.i, lat: f.g[0][0][0], lon: f.g[0][0][1], tags: f.t }
-                 : { type: 'relation', id: f.i, tags: Object.assign({}, f.t, f.l ? {} : {}), members: mem, _line: f.l };
-          seen[f.i] = el; els.push(el);
-        });
-      }).catch(function () {});
+      return fetch('data/water/' + k + '.json').then(function (r) { if (!r.ok) { miss.push(k); return []; } hit++; return r.json(); }).then(add).catch(function () {});
+    }));
+    var blocks = {};
+    miss.forEach(function (k) { var p = k.split('_'); (blocks[Math.floor(p[0] / 4) + '_' + Math.floor(p[1] / 4)] = blocks[Math.floor(p[0] / 4) + '_' + Math.floor(p[1] / 4)] || []).push(k); });
+    await Promise.all(Object.keys(blocks).map(function (b) {
+      return water2(b).then(function (j) { if (!j) return; hit++; blocks[b].forEach(function (k) { if (j[k]) add(j[k]); }); });
     }));
     return hit ? { elements: els } : null;
   }
@@ -307,9 +336,9 @@ function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json
     // When lakes/ponds/canals failed to load, say so first; "0 hazards" alone would read as "no water here".
     var bits = failed ? [BUSY_MSG, 'Showing only what did load: ' + hz.length + ' water hazards within ' + fmt(rad) + '.'] : [hz.length + ' water hazards within ' + fmt(rad) + ', nearest first.'];
     if (failed && !hz.length) { $('#list').innerHTML = '<li style="cursor:default"><span class="sev s3"></span><div>Lakes, ponds and canals did not load (map data servers busy). Try again in a few minutes, and check your street in person.</div><span></span></li>'; $('#s-near').textContent = '?'; }
-    var nOsm = pools.filter(function (p) { return p[2] === 'osm'; }).length;
+    var nOsm = pools.filter(function (p) { return p[2] === 'osm'; }).length, nOsm2 = osm.elements.filter(function (e) { return e._osmPool; }).length;
     if (pools.length - nOsm) bits.push((pools.length - nOsm) + ' pools from county records.');
-    if (nOsm) bits.push(nOsm + ' pools from OpenStreetMap (pool coverage here is partial).');
+    if (nOsm + nOsm2) bits.push((nOsm + nOsm2) + ' pools from OpenStreetMap (pool coverage here is partial).');
     status(bits.join(' '), failed);
   }
   var marking = false;
