@@ -11,6 +11,14 @@
 <meta property="og:url" content="https://hydroshield.givekidsavoice.org/">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f2a33">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Hydro-Shield">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -37,6 +45,7 @@ h1{margin:0;font-size:clamp(1.6rem,4vw,2.3rem);line-height:1.1;text-wrap:balance
 form{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
 input[type=text]{flex:1 1 280px;min-width:0;font:inherit;padding:11px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
 select{font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
+[hidden]{display:none!important}
 button{font:700 1rem var(--body);padding:11px 18px;border-radius:8px;border:0;background:var(--water);color:#fff;cursor:pointer}
 button.ghost{background:transparent;color:var(--water);border:1px solid var(--water)}
 button.ghost[aria-pressed="true"]{background:var(--danger);border-color:var(--danger);color:#fff}
@@ -81,7 +90,9 @@ footer a{color:var(--water)}
     <input type="text" id="addr" autocomplete="street-address" placeholder="Street address, city, state" aria-label="Home address" value="">
     <select id="rad" aria-label="Search radius"><option value="300">300 m</option><option value="500" selected>500 m</option><option value="800">800 m</option><option value="1200">1.2 km</option></select>
     <button type="submit">Map the water</button>
+    <button type="button" id="gps" hidden>Use my location</button>
     <button type="button" class="ghost" id="here">Use map center</button>
+    <button type="button" class="ghost" id="install" hidden>Install app</button>
     <button type="button" class="ghost" id="mark" aria-pressed="false">+ Mark water I know about</button>
   </form>
   <div class="status" id="st" role="status" aria-live="polite"></div>
@@ -101,6 +112,7 @@ footer a{color:var(--water)}
 
   <section class="coverage" aria-label="Where this map works" style="margin-top:16px">
     <p class="note"><b>Where this works.</b> Lakes, ponds, canals and streams: all of Florida, California, Texas, Arizona, Nevada, Georgia, North Carolina, South Carolina, Louisiana, Alabama, Mississippi, Tennessee, Oklahoma and Utah. Elsewhere in the US the map asks the public OpenStreetMap servers live, which can be slow or busy. Florida pool records: Alachua, Brevard, Charlotte, Citrus, Collier, Duval, Hernando, Hillsborough, Indian River, Lake, Lee, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns, St. Lucie and Volusia counties, with more coming. California pool records: San Diego County, Contra Costa County, San Joaquin County and Solano County, and the cities of Palm Desert, Rancho Mirage and Pasadena. Elsewhere in Southern California pool coverage is partial (OpenStreetMap): many backyard pools are not mapped yet. Arizona, Nevada and Texas pool records: Maricopa, Clark, Harris, Tarrant, Dallas and Collin counties. These come from assessor and appraisal-district records, which can lag a year behind new pools and do not show above-ground or unpermitted pools. Free, no sign-up, nothing you type is saved.</p>
+    <p class="note"><b>Install it as an app.</b> On iPhone: tap Share, then Add to Home Screen. On Android, Chrome or Edge: use the Install app button or the browser menu. The app adds a Use my location button (your location stays on your device) and keeps areas you have looked at available with a weak signal.</p>
   </section>
 
   <footer>
@@ -372,8 +384,29 @@ function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json
       status(k === 'ours' ? 'Saved as your pool: shown in green, still covered by the alarm when he is alone or at night.' : 'Saved on this device. It now counts in your water list.');
     });
   }
+  // Installed app: "Use my location". The position stays on this device; it is only used to center the search.
+  var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  if (standalone && 'geolocation' in navigator) {
+    $('#gps').hidden = false;
+    $('#gps').onclick = function () {
+      status('Finding your location…');
+      navigator.geolocation.getCurrentPosition(function (p) {
+        var pt = { lat: p.coords.latitude, lon: p.coords.longitude, label: 'your location' };
+        $('#addr').value = 'Your location (' + pt.lat.toFixed(5) + ', ' + pt.lon.toFixed(5) + ')';
+        run(pt);
+        reverse(pt.lat, pt.lon).then(function (a) { if (a && lastHome === pt) { $('#addr').value = a; } });
+      }, function (err) {
+        status(err.code === 1 ? 'Location is turned off for this app. Allow it in your phone settings, or type an address.' : 'Could not get your location. Type an address or tap the map.', true);
+      }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+    };
+  }
+  // Browsers that support it get an "Install app" button.
+  var installEvt = null;
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); installEvt = e; $('#install').hidden = false; });
+  $('#install').onclick = function () { if (!installEvt) return; installEvt.prompt(); installEvt.userChoice.finally(function () { installEvt = null; $('#install').hidden = true; }); };
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
   hsCount('view');
-  status('Type a home address above, or click a home on the map.');
+  status(standalone ? 'Tap Use my location, type an address, or tap the map.' : 'Type a home address above, or click a home on the map.');
 })();
 </script>
 </body>

@@ -1,0 +1,18 @@
+{
+  "name": "Hydro-Shield Water Map",
+  "short_name": "Hydro-Shield",
+  "description": "Every pool, pond and canal near a location, ranked by distance, for finding a child who wandered. Free, from Give Kids A Voice.",
+  "id": "/",
+  "start_url": "/?app=1",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f2a33",
+  "theme_color": "#0f2a33",
+  "categories": ["utilities", "navigation", "medical"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
