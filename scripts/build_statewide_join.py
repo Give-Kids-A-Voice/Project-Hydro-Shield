@@ -4,7 +4,7 @@ Florida Department of Revenue statewide parcel centroids (FDOR Cadastral Centroi
   python3 scripts/build_statewide_join.py sarasota RAW_DIR docs/data/pools   # RAW_DIR/SFYI.txt from SCPA_Detailed_Data.zip
   python3 scripts/build_statewide_join.py duval    RAW_DIR docs/data/pools   # RAW_DIR/*.txt pipe-delimited roll (record 00011 = extra features)
   python3 scripts/build_statewide_join.py citrus   RAW_DIR docs/data/pools   # RAW_DIR/VD_PARCELDATA.CSV (POOLFLG = Y)
-  python3 scripts/build_statewide_join.py <volusia|seminole|osceola|lake|marion|charlotte|stjohns|alachua|martin|leon|stlucie|brevard|indianriver> RAW_DIR docs/data/pools
+  python3 scripts/build_statewide_join.py <volusia|seminole|osceola|lake|marion|charlotte|stjohns|alachua|martin|leon|stlucie|brevard|indianriver|collier> RAW_DIR docs/data/pools
       # RAW_DIR filled by: scripts/fetch_county_raw.sh <county> RAW_DIR
 Writes [lat, lon] (pool) or [lat, lon, "spa"] into the shared tiles, deduped. No owner data.
 """
@@ -122,6 +122,13 @@ else:
                 c = p[4].strip().upper()
                 if c == 'SPCN' or c.startswith('SPFG') or c.startswith('AASPCN'): mark(p[0], 'pool')
                 elif c in ('SPAA', 'SPAF'): mark(p[0], 'spa')
+    elif county == 'collier':
+        co = 21   # int_buildings_csv.zip (Collier County Property Appraiser data downloads): BldgClass POOL-n/POOLnn/POOLVn = pool,
+                  # SPA/SPA-n = spa. ParcelId is the 11-digit FDOR PARCEL_ID (zero-padded here in case the CSV dropped leading zeros).
+        for r in csv.DictReader(open(os.path.join(raw, 'int_buildings.csv'), encoding='utf-8-sig')):
+            b = r['BldgClass'].strip().upper(); pid = r['ParcelId'].strip().zfill(11)
+            if b.startswith('POOL'): mark(pid, 'pool')
+            elif b.startswith('SPA'): mark(pid, 'spa')
     elif county == 'stlucie':
         co = 66   # SFYI.csv (St. Lucie County Property Appraiser free data download): SWAV/SWHI/SWLO residential pool,
                   # CSAV/CSHI commercial pool, SPA spa/hot tub. Keyed by ParcelID (same format as FDOR PARCEL_ID).
