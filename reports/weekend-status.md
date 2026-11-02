@@ -136,3 +136,46 @@ All 5 deploy runs for these commits succeeded. Because all of this is now on mai
   - Contacts are unchanged from Saturday's table.
 - **Broward, Okaloosa, Escambia, Bay, Santa Rosa:** I did not re-check them. Saturday's findings and contacts still apply.
   - Broward's only pool layer is the "internal" BCPA service, which I am not using without permission.
+
+## 2026-11-02 (Monday) — ready for Mark
+
+**Bottom line:** The live site is healthy; nothing was rolled back. There is **nothing new on `counties-next` to publish** — every county it was working toward (Collier, plus St. Lucie, Brevard and Indian River) is already live on main. No "publish" needed this week.
+
+### Weekly refresh
+- **No scheduled run happened this morning.** The workflow's schedule was changed on Nov 1 (958327b) from "Mondays 07:17 UTC" to daily 07:23 UTC with one source per day of the month. GitHub has never fired a `schedule` run for this repo (none in the run history), including today's. Worth a look: GitHub can be slow to register a changed cron, and it skips scheduled runs on repos it considers inactive.
+- Today's slot would have been day 2: Southern California water + OSM pools, and Wyoming whole-state water. Under the new plan, Florida counties refresh monthly on days 3–20, not weekly.
+- Runs today (all succeeded): push of d418e4f at 09:27 UTC (slot none), manual `tx-water2` at 09:49, manual `nv-water2` at 10:04. None refreshed a county, so there are no "placed" or "refresh skipped" lines.
+
+### Live health (Playwright, 14:50 UTC)
+Page returns 200 with "Every pond, canal and pool". The page opens without a search ("Type a home address above…"), so each address was searched directly.
+
+| Address | Expected | Live |
+|---|---|---|
+| Ashmonte Drive, Land O Lakes, FL | ~2329 | 2329 |
+| Westchase, Tampa, FL | ~3096 | 3096 |
+| Largo, FL | ~2696 | 2696 |
+| Sarasota, FL | ~3101 | 3101 |
+| Mandarin, Jacksonville, FL | ~648 | 648 |
+| 110 N Apopka Ave, Inverness, FL 34450 | ~592 | 592 |
+| Port Charlotte, FL | 5847 Sunday | 5844 |
+| Melbourne, FL (Brevard) | new | 3083 |
+| Naples, FL (Collier) | new | 7005 |
+| Vero Beach, FL (Indian River) | new | 1468 |
+| Port St. Lucie, FL (St. Lucie) | new | 3488 |
+
+### Main moved on since Sunday
+14 commits were pushed to main on Nov 1–2 by `mal247` (Claude sessions): St. Lucie, Brevard, Indian River and Collier counties; Maricopa, Clark, Harris, Tarrant, Dallas, Collin, Contra Costa, San Joaquin, Solano, Riverside, Williamson and Washoe pool records; whole-state water for the lower 48 + DC; Overpass rate-limit protection; the installable app. All their deploys succeeded.
+
+### `counties-next` brought up to date
+- Merged main into the branch (it was 14 commits behind). One conflict in `scripts/build_statewide_join.py`; kept main's version, whose Collier parser built the live data. The branch's extra Collier download step in `fetch_county_raw.sh` was kept (not used by the workflow).
+- Regression: `docs/` on the branch is byte-identical to main, so 0 of main's 2,451,922 pool points are lost. Served locally, all 11 addresses above gave the same pool counts as live. (Locally the lakes layer falls back to the "servers busy" message because water tiles live in the Actions cache, not the repo; that is expected.)
+- The only differences from main are this report and that unused fetch step. Merging it is optional.
+
+### Still need an email/data request (unchanged)
+- **Palm Beach:** pa-pubsvc@pbcpao.gov, 561-355-2881, form https://pbcpao.gov/pdf/DataRunRequest.pdf
+- **Broward:** only pool layer is the "internal" BCPA service; ask BCPA (bcpa.net) for permission
+- **Clay:** Cloudflare blocks ccpao.com; public-records form on ccpao.com
+- **Okaloosa:** 850-651-7240, https://okaloosapa.com/public-records-request/
+- **Escambia:** pidept@escpa.org, 850-434-2735
+- **Bay:** dsowell@baypa.net, 850-248-8401
+- **Santa Rosa:** publicrecords@srcpa.gov, https://srcpa.gov/public-records-request/
