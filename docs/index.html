@@ -39,6 +39,10 @@ html,body{margin:0}
 body{background:var(--bg);color:var(--fg);font:16px/1.5 var(--body)}
 .wrap{max-width:1180px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
 header{display:flex;flex-direction:column;gap:6px}
+.partner{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--water);border-radius:8px;padding:8px 12px;font-size:.9rem}
+.partner b{color:var(--fg)}
+.partner small{color:var(--muted)}
+.partner a{color:var(--water)}
 .eyebrow{font:500 .78rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--water)}
 h1{margin:0;font-size:clamp(1.6rem,4vw,2.3rem);line-height:1.1;text-wrap:balance}
 .lede{margin:0;max-width:65ch;color:var(--muted)}
@@ -80,6 +84,7 @@ footer a{color:var(--water)}
 </head>
 <body>
 <div class="wrap">
+  <div class="partner" id="partner" hidden></div>
   <header>
     <span class="eyebrow">Project Hydro-Shield · Give Kids A Voice</span>
     <h1>Every pond, canal and pool near your home</h1>
@@ -131,12 +136,32 @@ function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json
 </script>
 
 <script>
+// County editions: /?county=<slug> (or the short link /<slug>/) opens on that county with its credit line.
+// Nothing about the visitor is sent anywhere; the slug is remembered on this device only so the installed app reopens on the same county.
+var HS_PARTNERS = {
+  hillsborough: { name: 'Hillsborough County', state: 'FL', center: [27.93, -82.35], zoom: 10,
+    credit: 'Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>.' }
+};
+var HS_PARTNER = (function () {
+  var q = new URLSearchParams(location.search).get('county'), k = q && q.toLowerCase().replace(/[^a-z-]/g, '');
+  try { if (k && HS_PARTNERS[k]) localStorage.setItem('hs-county', k); else if (!k && ((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true)) k = localStorage.getItem('hs-county'); } catch (e) {}
+  var p = k && HS_PARTNERS[k]; if (p) p.slug = k; return p || null;
+})();
+</script>
+
+<script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
   var css = getComputedStyle(document.documentElement);
   var C = function (n) { return css.getPropertyValue(n).trim(); };
   // Opens on all of Florida. No location is ever requested from the visitor.
-  var map = L.map('map', { zoomControl: true }).setView([27.9, -83.2], 7);
+  var map = L.map('map', { zoomControl: true }).setView(HS_PARTNER ? HS_PARTNER.center : [27.9, -83.2], HS_PARTNER ? HS_PARTNER.zoom : 7);
+  if (HS_PARTNER) {
+    var pb = $('#partner'); pb.hidden = false;
+    pb.innerHTML = '<b>' + HS_PARTNER.name + ' edition</b> <small>' + HS_PARTNER.credit + '</small>';
+    document.title = 'Hydro-Shield Water Map · ' + HS_PARTNER.name;
+    $('#addr').placeholder = 'Street address in ' + HS_PARTNER.name + ', ' + HS_PARTNER.state;
+  }
   var streets = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
   var satellite = L.layerGroup([
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Imagery © Esri, Maxar, Earthstar Geographics' }),
@@ -151,7 +176,7 @@ function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json
   async function geocode(q) {
     // 1) Esri World Geocoder: strong on US street addresses (results not stored). 2) OpenStreetMap Nominatim as fallback.
     try {
-      var r = await fetch('https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?f=json&maxLocations=1&countryCode=USA&outFields=Match_addr&SingleLine=' + encodeURIComponent(q));
+      var r = await fetch('https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?f=json&maxLocations=1&countryCode=USA&outFields=Match_addr' + (HS_PARTNER ? '&location=' + HS_PARTNER.center[1] + ',' + HS_PARTNER.center[0] : '') + '&SingleLine=' + encodeURIComponent(q));
       var j = await r.json(), c = j.candidates && j.candidates[0];
       if (c && c.score >= 80) return { lat: c.location.y, lon: c.location.x, label: c.address };
     } catch (e) {}
