@@ -24,6 +24,7 @@ Project Hydro-Shield sits directly alongside our communication initiative (**Dyn
 
 ## 5. What works today
 - **Water Hazard Map** (`docs/`, live on GitHub Pages): enter an address, see every pond, retention basin, canal, ditch, pool and fountain within 300 m to 1.2 km, outlined on a map and ranked by distance to the water's edge. Uses free OpenStreetMap data. No API key.
+- **`scripts/aerial/`**: backyard pools detected in public USDA NAIP aerial imagery for areas without county pool records (pilot: San Fernando Valley). They are shown as "Pool (aerial estimate)". Method, held-out precision/recall and the scaling plan are in `scripts/aerial/README.md`.
 - **`scripts/hazard_scan.py`**: the same scan for the home hub. Outputs GeoJSON. `python3 scripts/hazard_scan.py "your address" > hazards.geojson`
 - `scripts/hydro_shield_scanner.py` is the original Google Places prototype. Places only returns named points, so it misses most unnamed retention ponds, ditches and backyard pools; the OpenStreetMap scan replaces it.
 

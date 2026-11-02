@@ -32,7 +32,10 @@ def pool_grid(key):
         for dx in (-1, 0, 1):
             p = os.path.join(pools, f'{y + dy}_{x + dx}.json') if pools else ''
             if p and os.path.exists(p):
-                for e in json.load(open(p)): g.add((math.floor(e[0] / CELL), math.floor(e[1] / CELL)))
+                for e in json.load(open(p)):
+                    # aerial estimates ("air") never displace an OpenStreetMap pool; the page drops the estimate instead
+                    if len(e) > 2 and e[2] == 'air': continue
+                    g.add((math.floor(e[0] / CELL), math.floor(e[1] / CELL)))
     grid_cache[key] = g; return g
 
 

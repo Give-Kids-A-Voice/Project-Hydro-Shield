@@ -151,7 +151,7 @@ def do_merge(pool_dir, dest):
         if os.path.exists(p):
             with open(p) as f: old[k] = json.load(f)
     cell = 30.0 / 111000.0
-    grid = set((math.floor(e[0] / cell), math.floor(e[1] / cell)) for v in old.values() for e in v if len(e) < 3 or e[2] != 'osm')
+    grid = set((math.floor(e[0] / cell), math.floor(e[1] / cell)) for v in old.values() for e in v if len(e) < 3 or e[2] not in ('osm', 'air'))  # aerial estimates never displace an OSM pool
     def near(la, lo):
         gy, gx = math.floor(la / cell), math.floor(lo / cell)
         return any((gy + dy, gx + dx) in grid for dy in (-1, 0, 1) for dx in (-1, 0, 1))
