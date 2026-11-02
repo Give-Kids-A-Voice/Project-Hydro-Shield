@@ -2,7 +2,7 @@ name: Build water tiles and publish site
 # Data refresh schedule: each source is refreshed ONCE A MONTH, on its own day, so no single run
 # hits many public servers at once. The workflow runs daily; a day with no slot does nothing.
 #   Day 1  Florida water (OpenStreetMap)        Day 11 Volusia        Day 21 California parcel pools (San Diego,
-#   Day 2  Southern California water + OSM pools Day 12 Seminole       Palm Desert, Rancho Mirage, Pasadena, Contra Costa, San Joaquin, Solano)
+#   Day 2  Southern California water + OSM pools Day 12 Seminole       Riverside County, Pasadena, Contra Costa, San Joaquin, Solano)
 #   Day 3  Hillsborough                          Day 13 Osceola
 #   Day 4  Manatee                               Day 14 Lake
 #   Day 5  Orange (FL)                           Day 15 Marion
@@ -15,10 +15,15 @@ name: Build water tiles and publish site
 #   Day 23 Nevada water + OSM pools (Clark)      Day 27 Tarrant + Collin (TX) pools
 #   Day 24 Texas water + OSM pools (Harris,      Day 28 Dallas (TX) pools
 #          Tarrant, Dallas, Collin)
-#   Day 25 Maricopa + Clark pools
+#   Day 25 Maricopa + Clark pools, and Washoe (NV) pools   Day 28 also Williamson (TX) pools
 # Whole-state water (packed, data/water2) is built by the parallel `water2` jobs below, one job per state, each on its own day:
 #   Day 3 California  Day 5 Texas   Day 7 Arizona   Day 9 Nevada    Day 11 Georgia  Day 13 North Carolina  Day 15 South Carolina
 #   Day 17 Louisiana  Day 19 Alabama  Day 21 Mississippi  Day 23 Tennessee  Day 25 Oklahoma  Day 27 Utah
+#   Day 1 Montana  Day 2 Wyoming  Day 4 New York + North Dakota  Day 6 Pennsylvania + South Dakota  Day 8 Illinois + Nebraska
+#   Day 10 Ohio + West Virginia  Day 12 Michigan + Maine  Day 14 New Jersey + Connecticut + Delaware
+#   Day 16 Virginia + Maryland + Washington DC  Day 18 Washington + Oregon + Idaho  Day 20 Massachusetts + Indiana + New Hampshire
+#   Day 22 Missouri + Kansas + Vermont  Day 24 Wisconsin + Iowa + Rhode Island  Day 26 Colorado + New Mexico
+#   Day 28 Minnesota + Kentucky + Arkansas      (every state in the lower 48 plus DC; Alaska and Hawaii use live Overpass)
 # These run beside the main job, so they add no time to the busiest day's build. Tiles the older per-region builds above
 # already have (Florida, Southern California, Maricopa, Clark, the four Texas counties) keep coming from data/water.
 # Pasco, Pinellas, Citrus and St. Lucie are refreshed by hand from files the county sends or the owner downloads.
@@ -33,7 +38,7 @@ on:
   workflow_dispatch:
     inputs:
       slot:
-        description: 'Refresh one slot now (fl-water, socal-water, hillsborough, manatee, orange, lee, polk, hernando, sarasota, duval, volusia, seminole, osceola, lake, marion, charlotte, stjohns, alachua, martin, leon, ca-parcels, az-water, nv-water, tx-water, az-nv-pools, harris, tarrant-collin, dallas; whole-state water: ca-water2, tx-water2, az-water2, nv-water2, ga-water2, nc-water2, sc-water2, la-water2, al-water2, ms-water2, tn-water2, ok-water2, ut-water2) or leave blank to just publish'
+        description: 'Refresh one slot now (fl-water, socal-water, hillsborough, manatee, orange, lee, polk, hernando, sarasota, duval, volusia, seminole, osceola, lake, marion, charlotte, stjohns, alachua, martin, leon, ca-parcels, az-water, nv-water, tx-water, az-nv-pools, harris, tarrant-collin, dallas, williamson, washoe; whole-state water: ca-water2, tx-water2, az-water2, nv-water2, ga-water2, nc-water2, sc-water2, la-water2, al-water2, ms-water2, tn-water2, ok-water2, ut-water2, ny-water2, pa-water2, il-water2, oh-water2, mi-water2, nj-water2, ct-water2, va-water2, md-water2, wa-water2, or-water2, ma-water2, in-water2, mo-water2, ks-water2, wi-water2, ia-water2, co-water2, nm-water2, mn-water2, ky-water2, ar-water2, mt-water2, wy-water2, nd-water2, sd-water2, ne-water2, wv-water2, me-water2, de-water2, dc-water2, id-water2, nh-water2, vt-water2, ri-water2) or leave blank to just publish'
         required: false
         default: ''
 permissions:
@@ -52,6 +57,7 @@ jobs:
     timeout-minutes: 90
     strategy:
       fail-fast: false
+      max-parallel: 8   # gentle on download.geofabrik.de when many states have no cached copy (first run, new month + new script hash)
       matrix:
         include:
           - { st: ca, slug: california, day: 3 }
@@ -67,6 +73,41 @@ jobs:
           - { st: tn, slug: tennessee, day: 23 }
           - { st: ok, slug: oklahoma, day: 25 }
           - { st: ut, slug: utah, day: 27 }
+          - { st: ny, slug: new-york, day: 4 }
+          - { st: pa, slug: pennsylvania, day: 6 }
+          - { st: il, slug: illinois, day: 8 }
+          - { st: oh, slug: ohio, day: 10 }
+          - { st: mi, slug: michigan, day: 12 }
+          - { st: nj, slug: new-jersey, day: 14 }
+          - { st: ct, slug: connecticut, day: 14 }
+          - { st: va, slug: virginia, day: 16 }
+          - { st: md, slug: maryland, day: 16 }
+          - { st: wa, slug: washington, day: 18 }
+          - { st: or, slug: oregon, day: 18 }
+          - { st: ma, slug: massachusetts, day: 20 }
+          - { st: in, slug: indiana, day: 20 }
+          - { st: mo, slug: missouri, day: 22 }
+          - { st: ks, slug: kansas, day: 22 }
+          - { st: wi, slug: wisconsin, day: 24 }
+          - { st: ia, slug: iowa, day: 24 }
+          - { st: co, slug: colorado, day: 26 }
+          - { st: nm, slug: new-mexico, day: 26 }
+          - { st: mn, slug: minnesota, day: 28 }
+          - { st: ky, slug: kentucky, day: 28 }
+          - { st: ar, slug: arkansas, day: 28 }
+          - { st: mt, slug: montana, day: 1 }
+          - { st: wy, slug: wyoming, day: 2 }
+          - { st: nd, slug: north-dakota, day: 4 }
+          - { st: sd, slug: south-dakota, day: 6 }
+          - { st: ne, slug: nebraska, day: 8 }
+          - { st: wv, slug: west-virginia, day: 10 }
+          - { st: me, slug: maine, day: 12 }
+          - { st: de, slug: delaware, day: 14 }
+          - { st: dc, slug: district-of-columbia, day: 16 }
+          - { st: id, slug: idaho, day: 18 }
+          - { st: nh, slug: new-hampshire, day: 20 }
+          - { st: vt, slug: vermont, day: 22 }
+          - { st: ri, slug: rhode-island, day: 24 }
     steps:
       - name: Decide
         id: s
@@ -333,16 +374,26 @@ jobs:
         id: ref
         if: steps.s.outputs.run == 'true' && steps.s.outputs.slot != '' && steps.s.outputs.slot != 'fl-water'
         continue-on-error: true   # a failed refresh keeps the committed tiles
+        env:
+          # Washoe County Assessor public "GSA_QuickInfo" download (updated nightly), from washoecounty.gov/assessor/online_data/DataDownloads.php
+          WASHOE_QI: https://gis.washoecounty.us/webservices/gisdataservice/DocumentFiles/AssessorOnlineReports/A7BE5E322AA4WC531ADMINCF8BC6597CX2B4/?fileId=GSA_QuickInfo.zip
         run: |
           P=docs/data/pools; slot="${{ steps.s.outputs.slot }}"
           case "$slot" in
             socal-water)
-              # Fresh OSM pool points for Southern California, then re-apply the parcel records so they win over OSM duplicates
+              # Fresh OSM pool points for Southern California, then re-apply the parcel records (San Diego, Riverside, Pasadena) so they win over OSM duplicates
               [ -d socal-pools ] && python3 scripts/build_osm_region.py merge socal-pools $P && python3 scripts/build_ca_parcel_pools.py $P sandiego ;;
             az-water|nv-water|tx-water)
               # Fresh OSM pool points merged into the committed tiles; county records win over nearby OSM duplicates
               d="${slot%-water}-pools"; [ -d "$d" ] && python3 scripts/build_osm_region.py merge "$d" $P ;;
-            az-nv-pools) python3 scripts/build_metro_pools.py $P raw maricopa clark ;;
+            az-nv-pools)
+              st=0; python3 scripts/build_metro_pools.py $P raw maricopa clark || st=1
+              # Washoe (NV) rides along on this day (no free day left). Its own failure keeps its committed data and never blocks Maricopa/Clark.
+              { mkdir -p raw/washoe && curl -sSfL --retry 3 -o raw/washoe/qi.zip "$WASHOE_QI" \
+                && python3 scripts/build_metro_pools.py $P raw washoe; } || echo "Washoe refresh failed; committed Washoe data kept"
+              [ $st = 0 ] ;;
+            washoe)
+              mkdir -p raw/washoe && curl -sSfL --retry 3 -o raw/washoe/qi.zip "$WASHOE_QI" && python3 scripts/build_metro_pools.py $P raw washoe ;;
             harris)
               pip install -q pyogrio pyproj shapely
               mkdir -p raw/harris && ( cd raw/harris \
@@ -355,7 +406,11 @@ jobs:
                 && python3 scripts/build_metro_pools.py $P raw tarrant collin ;;
             dallas)
               pip install -q pyogrio pyproj shapely
-              scripts/fetch_dallas_raw.sh raw/dallas && python3 scripts/build_metro_pools.py $P raw dallas ;;
+              st=0; { scripts/fetch_dallas_raw.sh raw/dallas && python3 scripts/build_metro_pools.py $P raw dallas; } || st=1
+              # Williamson (TX) rides along on Dallas's day (no free day left). Its own failure keeps its committed data and never blocks Dallas.
+              python3 scripts/build_metro_pools.py $P raw williamson || echo "Williamson refresh failed; committed Williamson data kept"
+              [ $st = 0 ] ;;
+            williamson) pip install -q shapely && python3 scripts/build_metro_pools.py $P raw williamson ;;
             hillsborough) python3 scripts/build_hillsborough_pools.py $P ;;
             manatee|orange|lee) python3 scripts/build_arcgis_pools.py $P "$slot" ;;
             polk)

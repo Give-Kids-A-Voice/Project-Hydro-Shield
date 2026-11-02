@@ -13,8 +13,13 @@ Sources (config below; one generic builder, four fetch kinds):
             to DCAD's own PARCEL2026 shapefile (GIS data products)                  raw-dir: cur.zip, PARCEL2026/**.shp
   harris    Harris Central Appraisal District Real_building_land.zip extra_features.txt, cd RRP1-RRP7 (residential pools),
             joined on acct to HCAD's Parcels.gdb (HCAD_NUM_1)                       raw-dir: rbl.zip, Parcels.gdb
+  washoe    Washoe County (NV) Assessor GSA_QuickInfo.zip (nightly public download): XFOB.txt extra-feature codes POOL, PLFG,
+            PLGN = pool, SPA0, SPAF, SPAG = spa (written as "spa" only where the parcel has no pool); the parcel point is
+            the lat/lng the Assessor publishes in Quick_Info.txt                    raw-dir must hold qi.zip
+  williamson Williamson Central Appraisal District open data (data.wcad.org, Socrata): Property Characteristics
+            (cvyp-ab5t) pool >= 1, joined on propertyid to WCAD's Parcels dataset (an3x-cnmw) for a point inside the parcel
 
-Only [lat, lon] (a point inside / centroid of the pool parcel) is written; owner names, addresses and parcel ids are
+Only [lat, lon] (a point inside / centroid of the pool parcel; [lat, lon, "spa"] for a spa-only parcel) is written; owner names, addresses and parcel ids are
 read only to join and dedupe, then dropped. Same tile scheme and OSM-duplicate rule (~30 m) as
 scripts/build_ca_parcel_pools.py, run AFTER the region's OSM pool copy. Exits non-zero without writing anything if a
 source fails, returns implausibly few pools, or places points outside the county box, so committed data stays.
@@ -41,6 +46,9 @@ SOURCES = {
                     url='https://tad.newedgeservices.com/arcgis/rest/services/OD_TAD/OD_Parcels/MapServer/0', key='TAXPIN'),
     'dallas': dict(kind='dallas', box=(32.5, 33.03, -97.05, -96.5), min=50000),
     'harris': dict(kind='harris', box=(29.45, 30.2, -95.97, -94.9), min=90000),
+    'washoe': dict(kind='washoe', box=(38.9, 42.01, -120.01, -118.85), min=2500),
+    'williamson': dict(kind='socrata_join', box=(30.4, 30.95, -98.1, -97.1), min=15000, site='https://data.wcad.org',
+                       table='cvyp-ab5t', where='pool > 0', tkey='propertyid', parcels='an3x-cnmw', key='propertyid'),
 }
 
 
@@ -163,15 +171,76 @@ def harris(c, raw):
     return file_points(os.path.join(raw, 'Parcels.gdb'), 'HCAD_NUM_1', keys)
 
 
+def washoe(c, raw):
+    pool_cd, spa_cd = {'POOL', 'PLFG', 'PLGN'}, {'SPA0', 'SPAF', 'SPAG'}; kind = {}
+    with zipfile.ZipFile(os.path.join(raw, 'qi.zip')) as z:
+        with z.open('XFOB.txt') as fh:
+            r = csv.reader(io.TextIOWrapper(fh, encoding='latin-1'), delimiter='\t', quoting=csv.QUOTE_NONE)
+            hdr = next(r); ip, ic = hdr.index('ParcelID'), hdr.index('Code')
+            for row in r:
+                if len(row) <= max(ip, ic): continue
+                cd, pid = row[ic].strip(), row[ip].strip()
+                if cd in pool_cd: kind[pid] = 'pool'
+                elif cd in spa_cd and kind.get(pid) != 'pool': kind[pid] = 'spa'
+        print(sum(v == 'pool' for v in kind.values()), 'pool parcels,', sum(v == 'spa' for v in kind.values()), 'spa-only', file=sys.stderr)
+        pts, seen = [], set()
+        with z.open('Quick_Info.txt') as fh:
+            r = csv.reader(io.TextIOWrapper(fh, encoding='latin-1'), delimiter='\t', quoting=csv.QUOTE_NONE)
+            hdr = next(r); ip, il, ig = hdr.index('ParcelID'), hdr.index('lat'), hdr.index('lng')
+            for row in r:
+                if len(row) <= max(ip, il, ig): continue
+                pid = row[ip].strip()
+                if pid not in kind or pid in seen: continue
+                try: la, lo = float(row[il]), float(row[ig])
+                except ValueError: continue
+                seen.add(pid); pts.append((la, lo) if kind[pid] == 'pool' else (la, lo, 'spa'))
+    return pts
+
+
+def soda(site, ds, params):
+    """One Socrata (SODA 2.1) query with retries and back-off; returns the JSON rows."""
+    u = '%s/resource/%s.json?%s' % (site, ds, urllib.parse.urlencode(params))
+    for attempt in range(6):
+        try:
+            req = urllib.request.Request(u, headers={'User-Agent': 'ProjectHydroShield/1.0 (givekidsavoice.org)'})
+            with urllib.request.urlopen(req, timeout=180) as r: return json.load(r)
+        except Exception as e:
+            if attempt == 5: raise
+            time.sleep((30 if '429' in str(e) else 4) * (attempt + 1))
+
+
+def socrata_join(c, raw):
+    from shapely.geometry import shape
+    keys, off = set(), 0
+    while True:
+        rows = soda(c['site'], c['table'], {'$select': c['tkey'], '$where': c['where'], '$order': c['tkey'],
+                                            '$limit': 50000, '$offset': off})
+        keys.update(str(r[c['tkey']]).strip() for r in rows if r.get(c['tkey']))
+        if len(rows) < 50000: break
+        off += 50000; time.sleep(1)
+    print(len(keys), 'properties with a pool', file=sys.stderr)
+    pts, seen, ks = [], set(), sorted(keys)
+    for i in range(0, len(ks), 200):
+        w = '%s in (%s)' % (c['key'], ','.join("'%s'" % k.replace("'", "''") for k in ks[i:i + 200]))
+        for r in soda(c['site'], c['parcels'], {'$select': c['key'] + ',geometry', '$where': w, '$limit': 5000}):
+            k = r.get(c['key'])
+            if k in seen or not r.get('geometry'): continue
+            try: g = shape(r['geometry']); g = g if g.is_valid else g.buffer(0); p = g.representative_point()
+            except Exception: continue
+            seen.add(k); pts.append((p.y, p.x))
+        time.sleep(0.5)
+    return pts
+
+
 def fetch(name, raw):
     c = SOURCES[name]; k = c['kind']
     if k in ('arcgis_latlon', 'arcgis_centroid'): pts = arcgis_points(c)
     elif k == 'arcgis_join': pts = arcgis_join(c)
     else: pts = globals()[k](c, raw)
     b = c['box']; out = []
-    for la, lo in pts:
-        la, lo = round(la, 5), round(lo, 5)
-        if b[0] < la < b[1] and b[2] < lo < b[3]: out.append((la, lo))
+    for p in pts:
+        la, lo = round(p[0], 5), round(p[1], 5)
+        if b[0] < la < b[1] and b[2] < lo < b[3]: out.append((la, lo) + tuple(p[2:]))
     print(name, len(pts), 'parcels placed,', len(out), 'inside the county box', file=sys.stderr)
     if len(out) < c['min']: raise RuntimeError('too few pools (%d < %d); keeping committed data' % (len(out), c['min']))
     if len(out) < 0.97 * len(pts): raise RuntimeError('too many points outside the county box; keeping committed data')
@@ -187,10 +256,10 @@ def write(out, got, failed):
     in the box of a county whose refresh failed (its committed points must survive)."""
     pts = [p for v in got.values() for p in v]
     tiles = collections.defaultdict(list)
-    for lat, lon in pts: tiles[tile(lat, lon)].append([lat, lon])
+    for p in pts: tiles[tile(p[0], p[1])].append(list(p))
     okb = [SOURCES[n]['box'] for n in got]; badb = [SOURCES[n]['box'] for n in failed]
     cell = NEAR_M / 111000.0
-    grid = set((math.floor(la / cell), math.floor(lo / cell)) for la, lo in pts)
+    grid = set((math.floor(p[0] / cell), math.floor(p[1] / cell)) for p in pts)
 
     def near(la, lo):
         gy, gx = math.floor(la / cell), math.floor(lo / cell)
