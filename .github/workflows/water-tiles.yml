@@ -1,8 +1,8 @@
 name: Build water tiles and publish site
 # Data refresh schedule: each source is refreshed ONCE A MONTH, on its own day, so no single run
 # hits many public servers at once. The workflow runs daily; a day with no slot does nothing.
-#   Day 1  Florida water (OpenStreetMap)        Day 11 Volusia        Day 21 California parcel pools
-#   Day 2  Southern California water + OSM pools Day 12 Seminole              (San Diego County + Palm Desert)
+#   Day 1  Florida water (OpenStreetMap)        Day 11 Volusia        Day 21 California parcel pools (San Diego,
+#   Day 2  Southern California water + OSM pools Day 12 Seminole       Palm Desert, Rancho Mirage, Pasadena, Contra Costa, San Joaquin, Solano)
 #   Day 3  Hillsborough                          Day 13 Osceola
 #   Day 4  Manatee                               Day 14 Lake
 #   Day 5  Orange (FL)                           Day 15 Marion
@@ -246,7 +246,7 @@ jobs:
           case "$slot" in
             socal-water)
               # Fresh OSM pool points for Southern California, then re-apply the parcel records so they win over OSM duplicates
-              [ -d socal-pools ] && python3 scripts/build_osm_region.py merge socal-pools $P && python3 scripts/build_ca_parcel_pools.py $P ;;
+              [ -d socal-pools ] && python3 scripts/build_osm_region.py merge socal-pools $P && python3 scripts/build_ca_parcel_pools.py $P sandiego ;;
             az-water|nv-water|tx-water)
               # Fresh OSM pool points merged into the committed tiles; county records win over nearby OSM duplicates
               d="${slot%-water}-pools"; [ -d "$d" ] && python3 scripts/build_osm_region.py merge "$d" $P ;;
