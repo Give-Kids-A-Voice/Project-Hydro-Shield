@@ -147,27 +147,59 @@ function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json
     var j2 = await r2.json(); if (!j2.length) throw new Error('We could not find that address. Check the spelling, or click your home on the map instead.');
     return { lat: +j2[0].lat, lon: +j2[0].lon, label: j2[0].display_name };
   }
-  var cache = {};
+  // Live Overpass is only a fallback for places with no prebuilt tiles. Under heavy traffic the public servers
+  // rate-limit, so: answers are cached in this browser for 7 days (keyed by the rounded query box, capped near 2 MB),
+  // servers are asked one at a time, at most two are tried, and after a refusal (429/503/504) this browser waits
+  // 2 minutes before asking again. Every storage call is guarded: private browsing may refuse or throw.
+  var cache = {}, OV_KEY = 'hydroshield-ov:', OV_PAUSE = 'hydroshield-ov-pause', OV_TTL = 7 * 864e5, OV_MAX = 2e6;
+  var BUSY_MSG = 'The map data servers are busy right now, so lakes, ponds and canals could not load here. Please try again in a few minutes.';
+  function busyErr() { var e = new Error(BUSY_MSG); e.busy = true; return e; }
+  function ovKey(lat, lon, rad) {
+    var dLat = rad / 110574, dLon = rad / (111320 * Math.cos(lat * Math.PI / 180)), r = function (v) { return v.toFixed(3); };
+    return [r(lat - dLat), r(lon - dLon), r(lat + dLat), r(lon + dLon)].join(',');
+  }
+  function ovEntries() {
+    var out = [];
+    try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf(OV_KEY) === 0) { var v = localStorage.getItem(k) || ''; var at = +(v.match(/^\{"at":(\d+)/) || [])[1] || 0; out.push({ k: k, at: at, n: v.length }); } } } catch (_) {}
+    return out;
+  }
+  function ovGet(k) {
+    try { var v = JSON.parse(localStorage.getItem(OV_KEY + k) || 'null'); if (v && Date.now() - v.at < OV_TTL && v.j && v.j.elements) return v.j; if (v) localStorage.removeItem(OV_KEY + k); } catch (_) {}
+    return null;
+  }
+  function ovPut(k, j) {
+    try {
+      var s = JSON.stringify({ at: Date.now(), j: j }); if (s.length > OV_MAX) return;
+      // Drop expired answers, then the oldest, until this one fits under the cap.
+      var es = ovEntries().sort(function (a, b) { return a.at - b.at; }), total = s.length;
+      es.forEach(function (e) { total += e.n; });
+      es.forEach(function (e) { if (total > OV_MAX || Date.now() - e.at >= OV_TTL) { try { localStorage.removeItem(e.k); total -= e.n; } catch (_) {} } });
+      localStorage.setItem(OV_KEY + k, s);
+    } catch (_) {}
+  }
+  function ovPaused() { try { return Date.now() < (+localStorage.getItem(OV_PAUSE) || 0); } catch (_) { return Date.now() < ovPauseMem; } }
+  var ovPauseMem = 0;
+  function ovPause() { ovPauseMem = Date.now() + 120000; try { localStorage.setItem(OV_PAUSE, String(ovPauseMem)); } catch (_) {} }
   async function overpass(lat, lon, rad) {
-    var q = HydroShield.overpassQuery(lat, lon, rad), key = q;
+    var key = ovKey(lat, lon, rad);
     if (cache[key]) return cache[key];
-    // Ask every server at once with a time limit; the first good answer wins.
-    var ctrls = [];
-    var tries = OVERPASS.map(function (url, i) {
-      var c = new AbortController(); ctrls.push(c);
-      var t = setTimeout(function () { c.abort(); }, 25000);
-      return new Promise(function (res, rej) { setTimeout(res, i * 1500); }).then(function () {
-        return fetch(url, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: c.signal });
-      }).then(function (r) { clearTimeout(t); if (!r.ok) throw new Error('busy ' + r.status); return r.json(); })
-        .then(function (j) { if (!j || !j.elements) throw new Error('bad data'); return j; });
-    });
+    var hit = ovGet(key); if (hit) return (cache[key] = hit);
+    if (Date.now() < ovPauseMem || ovPaused()) throw busyErr();
+    var q = HydroShield.overpassQuery(lat, lon, rad);
     var slow = setTimeout(function () { status('The map data servers are slow right now. Still trying…'); }, 8000);
     try {
-      var j = await Promise.any(tries);
-      ctrls.forEach(function (c) { try { c.abort(); } catch (_) {} });
-      cache[key] = j; return j;
-    } catch (e) {
-      throw new Error('The map data servers did not answer. Wait a minute and press Map the water again.');
+      var start = Math.floor(Math.random() * OVERPASS.length);   // spread load across servers
+      for (var n = 0; n < 2; n++) {
+        var url = OVERPASS[(start + n) % OVERPASS.length], c = new AbortController(), t = setTimeout(c.abort.bind(c), 20000);
+        try {
+          var r = await fetch(url, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: c.signal });
+          if (r.status === 429 || r.status === 503 || r.status === 504) { ovPause(); continue; }   // refused: note it, try one other server at most
+          if (!r.ok) continue;
+          var j = await r.json(); if (!j || !j.elements) continue;
+          cache[key] = j; ovPut(key, j); return j;
+        } catch (e) {} finally { clearTimeout(t); }
+      }
+      throw busyErr();
     } finally { clearTimeout(slow); }
   }
   function fmt(m) { return m < 1 ? 'at home' : m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1) + ' km'; }
@@ -271,12 +303,14 @@ function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json
     hz.forEach(function (h) { if (/^node\/mk/.test(h.id) && h.name === 'Our pool') { h.sev = 1; h.kind = 'Safe with an adult nearby. Alarm still covers it alone or at night.'; h.ours = true; } });
     hz = hz.filter(function (h) { return !h.ours; }).concat(hz.filter(function (h) { return h.ours; }));
     render(home, rad, hz);
-    var bits = [hz.length + ' water hazards within ' + fmt(rad) + ', nearest first.'];
+    var failed = res[0].status !== 'fulfilled';
+    // When lakes/ponds/canals failed to load, say so first; "0 hazards" alone would read as "no water here".
+    var bits = failed ? [BUSY_MSG, 'Showing only what did load: ' + hz.length + ' water hazards within ' + fmt(rad) + '.'] : [hz.length + ' water hazards within ' + fmt(rad) + ', nearest first.'];
+    if (failed && !hz.length) { $('#list').innerHTML = '<li style="cursor:default"><span class="sev s3"></span><div>Lakes, ponds and canals did not load (map data servers busy). Try again in a few minutes, and check your street in person.</div><span></span></li>'; $('#s-near').textContent = '?'; }
     var nOsm = pools.filter(function (p) { return p[2] === 'osm'; }).length;
     if (pools.length - nOsm) bits.push((pools.length - nOsm) + ' pools from county records.');
     if (nOsm) bits.push(nOsm + ' pools from OpenStreetMap (pool coverage here is partial).');
-    if (res[0].status !== 'fulfilled') bits.push('Lakes, ponds and canals could not load right now (map data servers busy); try again in a minute.');
-    status(bits.join(' '), res[0].status !== 'fulfilled');
+    status(bits.join(' '), failed);
   }
   var marking = false;
   $('#mark').onclick = function () {
