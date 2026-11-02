@@ -4,7 +4,7 @@ Florida Department of Revenue statewide parcel centroids (FDOR Cadastral Centroi
   python3 scripts/build_statewide_join.py sarasota RAW_DIR docs/data/pools   # RAW_DIR/SFYI.txt from SCPA_Detailed_Data.zip
   python3 scripts/build_statewide_join.py duval    RAW_DIR docs/data/pools   # RAW_DIR/*.txt pipe-delimited roll (record 00011 = extra features)
   python3 scripts/build_statewide_join.py citrus   RAW_DIR docs/data/pools   # RAW_DIR/VD_PARCELDATA.CSV (POOLFLG = Y)
-  python3 scripts/build_statewide_join.py <volusia|seminole|osceola|lake|marion|charlotte|stjohns|alachua|martin|leon|collier> RAW_DIR docs/data/pools
+  python3 scripts/build_statewide_join.py <volusia|seminole|osceola|lake|marion|charlotte|stjohns|alachua|martin|leon|stlucie|brevard|indianriver|collier> RAW_DIR docs/data/pools
       # RAW_DIR filled by: scripts/fetch_county_raw.sh <county> RAW_DIR
 Writes [lat, lon] (pool) or [lat, lon, "spa"] into the shared tiles, deduped. No owner data.
 """
@@ -103,24 +103,39 @@ else:
             c, d = p[2].strip().upper(), p[3].strip().upper()
             if c == 'OOL' and (not d or 'POOL' in d): mark(p[0], 'pool')
             elif c == 'SPA': mark(p[0], 'spa')
+    elif county == 'brevard':
+        co, key_field = 15, 'ALT_KEY'   # BCPAOWebData.accdb (Brevard Property Appraiser WebData.zip) table bcpao_WebExtraFeatures
+        # exported to xf.csv with mdb-export. POLR*/POLV*/POLC*/XPOOL = pool, SPAR*/SPACM/XSPAS = spa (POOL DECK excluded).
+        # PropertyID is the Brevard account number, which FDOR carries as ALT_KEY.
+        for r in csv.DictReader(open(os.path.join(raw, 'xf.csv'), encoding='latin-1')):
+            c = r['ExtraFeatureCode'].strip().upper()
+            if c[:4] in ('POLR', 'POLV', 'POLC') or c == 'XPOOL': mark(r['PropertyID'], 'pool')
+            elif c[:4] == 'SPAR' or c in ('SPACM', 'XSPAS'): mark(r['PropertyID'], 'spa')
+    elif county == 'indianriver':
+        co, key_field = 41, 'ALT_KEY'   # DataDownload.zip (Indian River County Property Appraiser): WebExport_IMPROVEMENT_DETAIL_*.TXT,
+        # tab-delimited, no header. Column 1 = property ID (FDOR ALT_KEY), column 2 = improvement ID, column 5 = feature code.
+        # SPCN/SPFG* concrete or fiberglass pool, AASPCN* commercial pool; SPAA/SPAF in-ground spa. (SP20-SP60 are screened porches.)
+        for fp in glob.glob(os.path.join(raw, 'WebExport_IMPROVEMENT_DETAIL_*.TXT')):
+            for line in open(fp, encoding='latin-1'):
+                p = line.split('\t')
+                if len(p) < 5: continue
+                c = p[4].strip().upper()
+                if c == 'SPCN' or c.startswith('SPFG') or c.startswith('AASPCN'): mark(p[0], 'pool')
+                elif c in ('SPAA', 'SPAF'): mark(p[0], 'spa')
     elif county == 'collier':
-        # int_buildings.csv (one row per structure or extra feature) + int_buildingcodes.csv lookup.
-        # Codes whose Description is POOL (POOL-1..9, POOL10..27, POOLV*, NVP*) = pool; SPA, SPA-1..7 = spa.
-        # NOT YET RUN on real data (download not obtained 2026-11-01): the layout page does not say which column
-        # holds the code, so both BldgClass and CalcCode are checked and the hits per column are printed.
-        co = 21
-        rd = lambda f: csv.DictReader(open(glob.glob(os.path.join(raw, f))[0], encoding='utf-8-sig', errors='replace'))
-        code = {}
-        for r in rd('*buildingcodes*.csv'):
-            d = (r.get('Description') or '').strip().upper()
-            if d == 'POOL': code[r['Code'].strip().upper()] = 'pool'
-            elif d == 'SPA': code[r['Code'].strip().upper()] = 'spa'
-        hits = collections.Counter()
-        for r in rd('int_buildings.csv'):
-            for col in ('BldgClass', 'CalcCode'):
-                k = code.get((r.get(col) or '').strip().upper())
-                if k: hits[col] += 1; mark(r['ParcelId'], k); break
-        print('collier code hits by column', dict(hits), file=sys.stderr)
+        co = 21   # int_buildings_csv.zip (Collier County Property Appraiser data downloads): BldgClass POOL-n/POOLnn/POOLVn = pool,
+                  # SPA/SPA-n = spa. ParcelId is the 11-digit FDOR PARCEL_ID (zero-padded here in case the CSV dropped leading zeros).
+        for r in csv.DictReader(open(os.path.join(raw, 'int_buildings.csv'), encoding='utf-8-sig')):
+            b = r['BldgClass'].strip().upper(); pid = r['ParcelId'].strip().zfill(11)
+            if b.startswith('POOL'): mark(pid, 'pool')
+            elif b.startswith('SPA'): mark(pid, 'spa')
+    elif county == 'stlucie':
+        co = 66   # SFYI.csv (St. Lucie County Property Appraiser free data download): SWAV/SWHI/SWLO residential pool,
+                  # CSAV/CSHI commercial pool, SPA spa/hot tub. Keyed by ParcelID (same format as FDOR PARCEL_ID).
+        for r in csv.DictReader(open(os.path.join(raw, 'SFYI.csv'), encoding='latin-1')):
+            c = r['SFYI'].strip().upper()
+            if c in ('SWAV', 'SWHI', 'SWLO', 'CSAV', 'CSHI'): mark(r['ParcelID'], 'pool')
+            elif c == 'SPA': mark(r['ParcelID'], 'spa')
     else:
         sys.exit('unknown county')
 print(county, len(kind), 'parcels with a pool or spa', file=sys.stderr)

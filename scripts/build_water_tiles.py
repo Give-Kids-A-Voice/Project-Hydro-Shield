@@ -8,6 +8,8 @@ import json, math, os, sys, collections
 from shapely.geometry import shape, box, mapping
 from shapely.validation import make_valid
 src, out = sys.argv[1], sys.argv[2]
+# --simplify M: Douglas-Peucker tolerance in meters (0 = off). Applied per clipped piece, so tile edges still meet.
+SIMP = float(sys.argv[sys.argv.index('--simplify') + 1]) / 111000.0 if '--simplify' in sys.argv else 0.0
 KEEP = ('natural', 'water', 'landuse', 'leisure', 'waterway', 'amenity', 'name', 'access', 'basin')
 tiles = collections.defaultdict(list); n = 0
 
@@ -55,6 +57,9 @@ with open(src) as f:
                 cell = box(x * T, y * T, (x + 1) * T, (y + 1) * T)
                 part = geom if (minx >= x*T and maxx <= (x+1)*T and miny >= y*T and maxy <= (y+1)*T) else geom.intersection(cell)
                 if part.is_empty: continue
+                if SIMP and part.geom_type != 'Point':
+                    sp = part.simplify(SIMP, preserve_topology=False)
+                    if not sp.is_empty: part = sp          # a pond smaller than the tolerance keeps its original outline
                 # keep only the parts a person could reach; clip so big bays and rivers are stored once per tile, not whole
                 rs = [[[round(yy, 5), round(xx, 5)] for xx, yy in thin(list(r))] for r in rings(mapping(part))]
                 rs = [r for r in rs if r]
