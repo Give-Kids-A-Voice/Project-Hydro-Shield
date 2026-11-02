@@ -11,6 +11,11 @@ name: Build water tiles and publish site
 #   Day 8  Hernando                              Day 18 Alachua
 #   Day 9  Sarasota                              Day 19 Martin
 #   Day 10 Duval                                 Day 20 Leon
+#   Day 22 Arizona water + OSM pools (Maricopa)  Day 26 Harris (TX) pools
+#   Day 23 Nevada water + OSM pools (Clark)      Day 27 Tarrant + Collin (TX) pools
+#   Day 24 Texas water + OSM pools (Harris,      Day 28 Dallas (TX) pools
+#          Tarrant, Dallas, Collin)
+#   Day 25 Maricopa + Clark pools
 # Pasco, Pinellas, Citrus and St. Lucie are refreshed by hand from files the county sends or the owner downloads.
 # Refreshed pool tiles are committed back to docs/data/pools, so pushes never re-download pool data.
 # Water tiles live in the Actions cache (one entry per region per month). A push reuses the newest cached
@@ -23,7 +28,7 @@ on:
   workflow_dispatch:
     inputs:
       slot:
-        description: 'Refresh one slot now (fl-water, socal-water, hillsborough, manatee, orange, lee, polk, hernando, sarasota, duval, volusia, seminole, osceola, lake, marion, charlotte, stjohns, alachua, martin, leon, ca-parcels) or leave blank to just publish'
+        description: 'Refresh one slot now (fl-water, socal-water, hillsborough, manatee, orange, lee, polk, hernando, sarasota, duval, volusia, seminole, osceola, lake, marion, charlotte, stjohns, alachua, martin, leon, ca-parcels, az-water, nv-water, tx-water, az-nv-pools, harris, tarrant-collin, dallas) or leave blank to just publish'
         required: false
         default: ''
 permissions:
@@ -49,7 +54,8 @@ jobs:
               6) slot=lee;; 7) slot=polk;; 8) slot=hernando;; 9) slot=sarasota;; 10) slot=duval;;
               11) slot=volusia;; 12) slot=seminole;; 13) slot=osceola;; 14) slot=lake;; 15) slot=marion;;
               16) slot=charlotte;; 17) slot=stjohns;; 18) slot=alachua;; 19) slot=martin;; 20) slot=leon;;
-              21) slot=ca-parcels;;
+              21) slot=ca-parcels;; 22) slot=az-water;; 23) slot=nv-water;; 24) slot=tx-water;;
+              25) slot=az-nv-pools;; 26) slot=harris;; 27) slot=tarrant-collin;; 28) slot=dallas;;
             esac
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             slot="${{ github.event.inputs.slot }}"
@@ -79,6 +85,39 @@ jobs:
           key: socal-water-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_water_tiles.py', 'scripts/build_osm_region.py') }}
           restore-keys: |
             socal-water-
+      - name: Restore Arizona water tiles
+        if: steps.s.outputs.run == 'true'
+        id: az
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            az-water
+            az-pools
+          key: az-water-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_water_tiles.py', 'scripts/build_osm_region.py') }}
+          restore-keys: |
+            az-water-
+      - name: Restore Nevada water tiles
+        if: steps.s.outputs.run == 'true'
+        id: nv
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            nv-water
+            nv-pools
+          key: nv-water-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_water_tiles.py', 'scripts/build_osm_region.py') }}
+          restore-keys: |
+            nv-water-
+      - name: Restore Texas water tiles
+        if: steps.s.outputs.run == 'true'
+        id: tx
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            tx-water
+            tx-pools
+          key: tx-water-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_water_tiles.py', 'scripts/build_osm_region.py') }}
+          restore-keys: |
+            tx-water-
       - name: Build Florida water tiles
         id: flb
         if: steps.s.outputs.run == 'true' && (steps.s.outputs.slot == 'fl-water' || steps.fl.outputs.cache-matched-key == '')
@@ -123,6 +162,81 @@ jobs:
             socal-water
             socal-pools
           key: socal-water-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_water_tiles.py', 'scripts/build_osm_region.py') }}-${{ github.run_id }}
+      - name: Build Arizona water tiles and OSM pool points
+        id: azb
+        if: steps.s.outputs.run == 'true' && (steps.s.outputs.slot == 'az-water' || steps.az.outputs.cache-matched-key == '')
+        continue-on-error: true   # never block the deploy; the previous tiles stay
+        timeout-minutes: 40
+        run: |
+          # Geofabrik state extract, filtered to water/pools and clipped to the region's counties (scripts/build_osm_region.py REGIONS)
+          pip install -q osmium shapely
+          curl -sSfL -o az.osm.pbf https://download.geofabrik.de/north-america/us/arizona-latest.osm.pbf
+          python3 scripts/build_osm_region.py filter az.osm.pbf az-water.osm.pbf arizona
+          rm -f az.osm.pbf
+          rm -rf az-water.new az-pools.new
+          python3 scripts/build_osm_region.py export az-water.osm.pbf az-water.geojsonseq az-pools.new arizona
+          python3 scripts/build_water_tiles.py az-water.geojsonseq az-water.new
+          rm -f az-water.osm.pbf az-water.geojsonseq
+          rm -rf az-water az-pools && mv az-water.new az-water && mv az-pools.new az-pools
+          du -sh az-water az-pools
+      - name: Save Arizona water tiles
+        if: steps.azb.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            az-water
+            az-pools
+          key: az-water-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_water_tiles.py', 'scripts/build_osm_region.py') }}-${{ github.run_id }}
+      - name: Build Nevada water tiles and OSM pool points
+        id: nvb
+        if: steps.s.outputs.run == 'true' && (steps.s.outputs.slot == 'nv-water' || steps.nv.outputs.cache-matched-key == '')
+        continue-on-error: true   # never block the deploy; the previous tiles stay
+        timeout-minutes: 40
+        run: |
+          # Geofabrik state extract, filtered to water/pools and clipped to the region's counties (scripts/build_osm_region.py REGIONS)
+          pip install -q osmium shapely
+          curl -sSfL -o nv.osm.pbf https://download.geofabrik.de/north-america/us/nevada-latest.osm.pbf
+          python3 scripts/build_osm_region.py filter nv.osm.pbf nv-water.osm.pbf nevada
+          rm -f nv.osm.pbf
+          rm -rf nv-water.new nv-pools.new
+          python3 scripts/build_osm_region.py export nv-water.osm.pbf nv-water.geojsonseq nv-pools.new nevada
+          python3 scripts/build_water_tiles.py nv-water.geojsonseq nv-water.new
+          rm -f nv-water.osm.pbf nv-water.geojsonseq
+          rm -rf nv-water nv-pools && mv nv-water.new nv-water && mv nv-pools.new nv-pools
+          du -sh nv-water nv-pools
+      - name: Save Nevada water tiles
+        if: steps.nvb.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            nv-water
+            nv-pools
+          key: nv-water-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_water_tiles.py', 'scripts/build_osm_region.py') }}-${{ github.run_id }}
+      - name: Build Texas water tiles and OSM pool points
+        id: txb
+        if: steps.s.outputs.run == 'true' && (steps.s.outputs.slot == 'tx-water' || steps.tx.outputs.cache-matched-key == '')
+        continue-on-error: true   # never block the deploy; the previous tiles stay
+        timeout-minutes: 40
+        run: |
+          # Geofabrik state extract, filtered to water/pools and clipped to the region's counties (scripts/build_osm_region.py REGIONS)
+          pip install -q osmium shapely
+          curl -sSfL -o tx.osm.pbf https://download.geofabrik.de/north-america/us/texas-latest.osm.pbf
+          python3 scripts/build_osm_region.py filter tx.osm.pbf tx-water.osm.pbf texas
+          rm -f tx.osm.pbf
+          rm -rf tx-water.new tx-pools.new
+          python3 scripts/build_osm_region.py export tx-water.osm.pbf tx-water.geojsonseq tx-pools.new texas
+          python3 scripts/build_water_tiles.py tx-water.geojsonseq tx-water.new
+          rm -f tx-water.osm.pbf tx-water.geojsonseq
+          rm -rf tx-water tx-pools && mv tx-water.new tx-water && mv tx-pools.new tx-pools
+          du -sh tx-water tx-pools
+      - name: Save Texas water tiles
+        if: steps.txb.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            tx-water
+            tx-pools
+          key: tx-water-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_water_tiles.py', 'scripts/build_osm_region.py') }}-${{ github.run_id }}
       - name: Refresh today's pool source
         id: ref
         if: steps.s.outputs.run == 'true' && steps.s.outputs.slot != '' && steps.s.outputs.slot != 'fl-water'
@@ -132,7 +246,24 @@ jobs:
           case "$slot" in
             socal-water)
               # Fresh OSM pool points for Southern California, then re-apply the parcel records so they win over OSM duplicates
-              [ -d socal-pools ] && cp -r socal-pools/. $P/ && python3 scripts/build_ca_parcel_pools.py $P ;;
+              [ -d socal-pools ] && python3 scripts/build_osm_region.py merge socal-pools $P && python3 scripts/build_ca_parcel_pools.py $P ;;
+            az-water|nv-water|tx-water)
+              # Fresh OSM pool points merged into the committed tiles; county records win over nearby OSM duplicates
+              d="${slot%-water}-pools"; [ -d "$d" ] && python3 scripts/build_osm_region.py merge "$d" $P ;;
+            az-nv-pools) python3 scripts/build_metro_pools.py $P raw maricopa clark ;;
+            harris)
+              pip install -q pyogrio pyproj shapely
+              mkdir -p raw/harris && ( cd raw/harris \
+                && { y=$(date -u +%Y); curl -sSfL --retry 3 -o rbl.zip https://download.hcad.org/data/CAMA/$y/Real_building_land.zip \
+                     || curl -sSfL --retry 3 -o rbl.zip https://download.hcad.org/data/CAMA/$((y - 1))/Real_building_land.zip; } \
+                && curl -sSfL --retry 3 -o parcels.zip https://download.hcad.org/data/GIS/Parcels.zip && unzip -oq parcels.zip && rm parcels.zip ) \
+                && python3 scripts/build_metro_pools.py $P raw harris ;;
+            tarrant-collin)
+              mkdir -p raw/tarrant && curl -sSfL -A "Mozilla/5.0" -o raw/tarrant/prop.zip "https://www.tad.org/content/data-download/PropertyData(Delimited)_R.ZIP" \
+                && python3 scripts/build_metro_pools.py $P raw tarrant collin ;;
+            dallas)
+              pip install -q pyogrio pyproj shapely
+              scripts/fetch_dallas_raw.sh raw/dallas && python3 scripts/build_metro_pools.py $P raw dallas ;;
             hillsborough) python3 scripts/build_hillsborough_pools.py $P ;;
             manatee|orange|lee) python3 scripts/build_arcgis_pools.py $P "$slot" ;;
             polk)
@@ -175,8 +306,9 @@ jobs:
           mkdir -p _site && cp -r docs/. _site/
           rm -rf _site/data/water && mkdir -p _site/data/water
           [ -d fl-water ] && cp -r fl-water/. _site/data/water/
-          [ -d socal-water ] && cp -r socal-water/. _site/data/water/ || echo "No Southern California water tiles this run"
-          ls _site/data/water | wc -l
+          # Regions can share a border tile (California / Nevada), so these are merged rather than copied over each other
+          dirs=""; for r in socal az nv tx; do [ -d $r-water ] && dirs="$dirs $r-water" || echo "No $r water tiles this run"; done
+          [ -n "$dirs" ] && python3 scripts/merge_tiles.py _site/data/water $dirs
           du -sh _site
       - uses: actions/upload-pages-artifact@v3
         if: steps.s.outputs.run == 'true'

@@ -3,15 +3,22 @@
 Used for Southern California (Los Angeles, Orange, Ventura, Riverside, San Bernardino and San Diego counties), where most
 assessors publish no pool flag (San Diego pool records come from scripts/build_ca_parcel_pools.py). Pure Python (pyosmium + shapely), so it runs the same in CI and locally.
 
-  python3 scripts/build_osm_region.py filter  socal-latest.osm.pbf  socal-water.osm.pbf
-  python3 scripts/build_osm_region.py export  socal-water.osm.pbf  socal-water.geojsonseq  pools-out-dir
+  python3 scripts/build_osm_region.py filter  socal-latest.osm.pbf  socal-water.osm.pbf  [region]
+  python3 scripts/build_osm_region.py export  socal-water.osm.pbf  socal-water.geojsonseq  pools-out-dir  [region]
+
+region (default socal) picks the counties from REGIONS below: socal, arizona (Maricopa), nevada (Clark),
+texas (Harris, Tarrant, Dallas, Collin). The input can be any OSM file pyosmium reads (.osm.pbf, or .osm XML).
 
 filter: keeps the same water tags as the Florida build (plus pool nodes/relations and county boundaries), with the nodes they need.
-export: clips to the six counties and writes
+  python3 scripts/build_osm_region.py merge   pools-out-dir  docs/data/pools
+
+export: clips to the region's counties and writes
   - a GeoJSON sequence in `osmium export` form for scripts/build_water_tiles.py (pools left out: they become points instead,
     so one pool is never counted twice), and
   - pool points into <pools-out-dir>/<floor(lat*20)>_<floor(lon*20)>.json as [lat, lon, "osm"], deduplicated
-    (a pool mapped twice, or as both a node and an outline, within ~4 m is kept once).
+    (a pool mapped twice, or as both a node and an outline, within ~4 m is kept once), plus _region.json (the clip area).
+merge: folds a fresh export's pool points into the committed tiles (see do_merge), so a water refresh never needs
+the county pool downloads again.
 """
 import json, math, os, sys, collections
 import osmium
@@ -19,8 +26,15 @@ from shapely.geometry import shape
 from shapely.ops import unary_union
 from shapely.prepared import prep
 
-COUNTIES = {'Los Angeles County', 'Orange County', 'Ventura County', 'Riverside County', 'San Bernardino County',
-            'San Diego County'}
+# region -> (county names, bbox lat0, lat1, lon0, lon1 that each county's interior point must fall in)
+REGIONS = {
+    'socal': ({'Los Angeles County', 'Orange County', 'Ventura County', 'Riverside County', 'San Bernardino County',
+               'San Diego County'}, (32.4, 35.9, -121.5, -114.0)),
+    'arizona': ({'Maricopa County'}, (32.4, 34.1, -113.4, -111.0)),
+    'nevada': ({'Clark County'}, (35.0, 37.0, -115.9, -114.0)),
+    'texas': ({'Harris County', 'Tarrant County', 'Dallas County', 'Collin County'}, (29.4, 33.5, -97.6, -94.9)),
+}
+COUNTIES, BBOX = REGIONS['socal']
 WATERWAY_LINES = {'canal', 'ditch', 'drain', 'stream', 'river'}
 
 
@@ -76,7 +90,10 @@ def do_export(src, out_seq, pool_dir):
             try: g = json.loads(gj.create_multipolygon(a))
             except Exception: return
             fid = ('w%d' if a.from_way() else 'r%d') % a.orig_id()
-            if a.from_way() is False and is_county(t): counties.append(shape(g)); return
+            if a.from_way() is False and is_county(t):
+                sh = shape(g); c = sh.representative_point()
+                if BBOX[0] < c.y < BBOX[1] and BBOX[2] < c.x < BBOX[3]: counties.append(sh)
+                return
             if is_pool(t):
                 c = shape(g).representative_point(); pools.append((c.y, c.x)); return
             if is_water(t, 'w' if a.from_way() else 'r') and t.get('waterway') not in WATERWAY_LINES:
@@ -101,6 +118,9 @@ def do_export(src, out_seq, pool_dir):
         seen.add((gy, gx)); np_ += 1
         tiles['%d_%d' % (math.floor(lat * 20), math.floor(lon * 20))].append([round(lat, 5), round(lon, 5), 'osm'])
     os.makedirs(pool_dir, exist_ok=True)
+    from shapely.geometry import mapping
+    with open(os.path.join(pool_dir, '_region.json'), 'w') as f:   # clip area, used by `merge`; not a tile
+        json.dump(mapping(unary_union(counties).buffer(0.005).simplify(0.001)), f)
     for k, v in tiles.items():
         p = os.path.join(pool_dir, k + '.json')
         if os.path.exists(p): sys.exit('pool tile %s already exists (region overlaps another source)' % p)
@@ -108,8 +128,51 @@ def do_export(src, out_seq, pool_dir):
     print(nw, 'water features,', np_, 'pools (', len(pools), 'before dedupe/clip ),', len(tiles), 'pool tiles')
 
 
+def do_merge(pool_dir, dest):
+    """Merge a fresh `export` pool dir into the committed tiles (dest) without re-downloading county records:
+    old OSM points inside this region are replaced; county/assessor points are never touched; a new OSM point within
+    ~30 m of a county point in the same or a neighbouring tile is dropped as a duplicate (same rule as the county builds).
+    Tiles shared with a neighbouring region (e.g. Clark County NV / San Bernardino CA) keep the other region's points."""
+    from shapely.geometry import Point
+    with open(os.path.join(pool_dir, '_region.json')) as f: reg = shape(json.load(f))
+    region = prep(reg); x0, y0, x1, y1 = reg.bounds
+    new = {}
+    for fn in os.listdir(pool_dir):
+        if fn.endswith('.json') and not fn.startswith('_'):
+            with open(os.path.join(pool_dir, fn)) as f: new[fn[:-5]] = json.load(f)
+    keys = set(new)
+    for fn in os.listdir(dest):   # committed tiles that overlap the region, so stale OSM points there are removed too
+        if not fn.endswith('.json'): continue
+        a, b = map(int, fn[:-5].split('_'))
+        if a / 20 <= y1 and (a + 1) / 20 >= y0 and b / 20 <= x1 and (b + 1) / 20 >= x0: keys.add(fn[:-5])
+    old = {}
+    for k in keys:
+        p = os.path.join(dest, k + '.json')
+        if os.path.exists(p):
+            with open(p) as f: old[k] = json.load(f)
+    cell = 30.0 / 111000.0
+    grid = set((math.floor(e[0] / cell), math.floor(e[1] / cell)) for v in old.values() for e in v if len(e) < 3 or e[2] != 'osm')
+    def near(la, lo):
+        gy, gx = math.floor(la / cell), math.floor(lo / cell)
+        return any((gy + dy, gx + dx) in grid for dy in (-1, 0, 1) for dx in (-1, 0, 1))
+    removed = added = dup = 0
+    for k in keys:
+        rest = []
+        for e in old.get(k, []):
+            if len(e) > 2 and e[2] == 'osm' and region.contains(Point(e[1], e[0])): removed += 1
+            else: rest.append(e)
+        for e in new.get(k, []):
+            if near(e[0], e[1]): dup += 1
+            else: rest.append(e); added += 1
+        p = os.path.join(dest, k + '.json')
+        if rest or os.path.exists(p):
+            with open(p, 'w') as f: json.dump(rest, f, separators=(',', ':'))
+    print('OSM pools merged: %d added, %d dropped as duplicates of county records, %d old OSM points replaced' % (added, dup, removed))
+
+
 if __name__ == '__main__':
     cmd = sys.argv[1]
-    if cmd == 'filter': do_filter(sys.argv[2], sys.argv[3])
-    elif cmd == 'export': do_export(sys.argv[2], sys.argv[3], sys.argv[4])
+    if cmd == 'filter': COUNTIES, BBOX = REGIONS[sys.argv[4] if len(sys.argv) > 4 else 'socal']; do_filter(sys.argv[2], sys.argv[3])
+    elif cmd == 'export': COUNTIES, BBOX = REGIONS[sys.argv[5] if len(sys.argv) > 5 else 'socal']; do_export(sys.argv[2], sys.argv[3], sys.argv[4])
+    elif cmd == 'merge': do_merge(sys.argv[2], sys.argv[3])
     else: sys.exit(__doc__)
