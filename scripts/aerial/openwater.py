@@ -6,6 +6,10 @@ read a decimated (~5 m) copy of the NAIP image from the file's overviews, mark w
 smaller than that, so they survive.
 
     python3 openwater.py <workdir> <year>        # rewrites <workdir>/chunks.jsonl, original kept as chunks.raw.jsonl
+
+Use it only for coastal regions (ocean, bays, big marinas). On hazy inland imagery (2022 Texas NAIP) the NDWI test marked
+yards and large apartment/community pools as open water and dropped thousands of real pools, so inland regions are
+written from the unfiltered detections. Always sample the dropped detections too, not just the kept ones.
 """
 import json, math, os, shutil, sys
 import numpy as np
