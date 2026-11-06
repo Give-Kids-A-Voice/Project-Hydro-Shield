@@ -422,6 +422,14 @@ var HS_PARTNER = (function () {
     e.preventDefault(); var q = $('#addr').value.trim(); if (!q) { status('Enter a home address first.', true); return; }
     try { status('Finding the address…'); var g = await geocode(q); run(g); } catch (err) { status(err.message, true); }
   });
+  // Share links: hydroshield.givekidsavoice.org/#addr=<address> fills the box and searches.
+  // The address is after '#', so it stays in the browser and is never sent to our server.
+  (function () {
+    var m = location.hash.match(/^#addr=(.+)$/); if (!m) return;
+    var a; try { a = decodeURIComponent(m[1].replace(/\+/g, ' ')).trim().slice(0, 200); } catch (e) { return; }
+    if (!a) return; $('#addr').value = a;
+    $('#f').dispatchEvent(new Event('submit', { cancelable: true }));
+  })();
   $('#here').onclick = function () { var c = map.getCenter(); run({ lat: c.lat, lon: c.lng, label: 'the map center' }); };
   // Wait briefly so a double-click (zoom) doesn't also count as "search here"
   var clickTimer = null;
