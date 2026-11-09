@@ -1,6 +1,6 @@
 """Fill gaps in OpenStreetMap streams with the USGS National Hydrography Dataset (NHD, high resolution).
 
-  python3 scripts/add_nhd.py <NHD state .gdb> <water.geojsonseq> <state code, e.g. pa>
+  python3 scripts/add_nhd.py <NHD state .gdb> <water.geojsonseq> <state code, e.g. pa> [Census urban areas .zip/.shp]
 
 OpenStreetMap is thin on small creeks in many states (central Pennsylvania especially). NHD is the USGS survey of
 every mapped stream, made from ground survey and imagery, so it includes creeks hidden under tree cover.
@@ -11,6 +11,11 @@ within ~35 m. So a creek that OSM already maps is never listed twice.
 Kept: perennial and intermittent streams/rivers (FCode 46000/46003/46006), canals and ditches (336xx).
 Left out: ephemeral washes (46007, dry except right after rain), pipelines and underground conduits, connectors,
 and "artificial paths" (the center lines NHD draws through lakes and wide rivers, which are already water areas).
+
+Intermittent streams (46003) are most of NHD's length (90% in Texas) and are mostly dry draws far from homes, so when a
+Census urban-area file is given (TIGER UAC20), intermittent creeks are kept only in and within ~1.5 km of a town.
+Year-round creeks, canals and ditches are kept everywhere. This keeps neighborhood creeks that flash-flood while keeping
+the published site small enough for GitHub Pages.
 
 Built to fit a CI runner even for Texas and Oregon (1+ GB downloads): OSM cells are kept as one sorted int64 array
 and NHD lines are read and checked in batches with numpy, so memory stays at a few GB.
@@ -23,6 +28,9 @@ from pyogrio import read_info
 import shapely
 
 gdb, seq, ST = sys.argv[1], sys.argv[2], sys.argv[3]
+URBAN = sys.argv[4] if len(sys.argv) > 4 else None   # 'none' = no town file available: drop intermittent creeks everywhere
+UCELL = 0.005                      # ~500 m grid for the town mask
+UPAD = 3                           # widen the mask by 3 cells (~1.5 km) so creeks at a town's edge are kept
 CELL = 0.0003                      # ~33 m (lat); a stretch counts as covered if OSM is in its cell or a neighbor
 STEP_DEG = 0.0001                  # walk lines every ~10 m (densify step, in degrees)
 MIN_RUN_M = 40.0                   # ignore uncovered scraps shorter than this (end-of-line wiggles next to OSM)
@@ -64,6 +72,7 @@ NB = np.array([dy * (W * 2) + dx for dy in (-1, 0, 1) for dx in (-1, 0, 1)], dty
 def covered(lat, lon):
     k = keys(lat, lon)
     hit = np.zeros(len(k), dtype=bool)
+    if not len(osm): return hit
     for n in NB:
         q = k + n; i = np.searchsorted(osm, q); i[i >= len(osm)] = 0
         hit |= osm[i] == q
@@ -73,8 +82,35 @@ def seg_len_m(c):
     dl = np.diff(c, axis=0)
     return np.hypot(dl[:, 1] * 110574, dl[:, 0] * 111320 * np.cos(np.radians(c[:-1, 1])))
 
-# 2. NHD flowlines, in batches.
-total = read_info(gdb, layer='NHDFlowline')['features']
+# 2. Town mask (optional): ~500 m cells inside or within ~1.5 km of a Census urban area.
+info = read_info(gdb, layer='NHDFlowline', force_total_bounds=True); total = info['features']
+urban = None
+if URBAN == 'none':
+    urban = np.zeros(0, np.int64)
+elif URBAN:
+    src = ('/vsizip/' + URBAN) if URBAN.endswith('.zip') else URBAN
+    bb = info.get('total_bounds')
+    _, _, ug, _ = ogr_read(src, bbox=tuple(bb) if bb is not None else None, columns=[])
+    polys = shapely.from_wkb(ug); shapely.prepare(polys); cells = []
+    for pg in polys:
+        x0, y0, x1, y1 = pg.bounds
+        xs = np.arange(np.floor(x0 / UCELL), np.floor(x1 / UCELL) + 1); ys = np.arange(np.floor(y0 / UCELL), np.floor(y1 / UCELL) + 1)
+        gx, gy = np.meshgrid(xs, ys); gx, gy = gx.ravel(), gy.ravel()
+        inside = shapely.contains_xy(pg, (gx + 0.5) * UCELL, (gy + 0.5) * UCELL)
+        if not inside.any():   # tiny town smaller than a cell: use its center
+            c = pg.representative_point(); gx, gy, inside = np.array([np.floor(c.x / UCELL)]), np.array([np.floor(c.y / UCELL)]), np.array([True])
+        cells.append(gy[inside].astype(np.int64) * (W * 2) + gx[inside].astype(np.int64) + W)
+    base = np.unique(np.concatenate(cells)) if cells else np.zeros(0, np.int64)
+    off = np.array([dy * (W * 2) + dx for dy in range(-UPAD, UPAD + 1) for dx in range(-UPAD, UPAD + 1)], dtype=np.int64)
+    urban = np.unique((base[:, None] + off[None, :]).ravel())
+    print('Census urban areas:', len(polys), '| town mask cells:', len(urban))
+def in_town(lat, lon):
+    k = np.floor(lat / UCELL).astype(np.int64) * (W * 2) + (np.floor(lon / UCELL).astype(np.int64) + W)
+    if not len(urban): return np.zeros(len(k), dtype=bool)
+    i = np.searchsorted(urban, k); i[i >= len(urban)] = 0
+    return urban[i] == k
+
+# 3. NHD flowlines, in batches.
 kept = checked = 0; km = 0.0
 with open(seq, 'a') as out:
     for start in range(0, total, BATCH):
@@ -91,6 +127,10 @@ with open(seq, 'a') as out:
         dense = shapely.segmentize(parts, STEP_DEG)
         xy, li = shapely.get_coordinates(dense, return_index=True)
         cov = covered(xy[:, 1], xy[:, 0])
+        if urban is not None:
+            # intermittent creeks outside towns are dropped (treated as if already covered)
+            inter = fc[sel[pidx[li]]] == 46003
+            if inter.any(): cov[inter] |= ~in_town(xy[inter, 1], xy[inter, 0])
         bounds = np.searchsorted(li, np.arange(len(dense) + 1))
         for j in range(len(dense)):
             a, b = bounds[j], bounds[j + 1]

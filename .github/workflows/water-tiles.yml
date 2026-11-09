@@ -156,9 +156,11 @@ jobs:
           if [ -n "${{ matrix.nhd }}" ]; then
             pip install -q pyogrio
             if curl -sSfL --retry 3 -o nhd.zip "https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHD/State/GDB/NHD_H_${{ matrix.nhd }}_State_GDB.zip" && unzip -oq nhd.zip -d nhd; then
-              python3 scripts/add_nhd.py nhd/NHD_H_${{ matrix.nhd }}_State_GDB.gdb water.geojsonseq ${{ matrix.st }} || echo "USGS fill failed; OSM-only this month"
+              # Census urban areas: intermittent creeks are kept only in and near towns (keeps the site under the Pages limit).
+              curl -sSfL --retry 3 -o uac.zip https://www2.census.gov/geo/tiger/TIGER2024/UAC20/tl_2024_us_uac20.zip || rm -f uac.zip
+              python3 scripts/add_nhd.py nhd/NHD_H_${{ matrix.nhd }}_State_GDB.gdb water.geojsonseq ${{ matrix.st }} $( [ -f uac.zip ] && echo uac.zip || echo none ) || echo "USGS fill failed; OSM-only this month"
             else echo "USGS download failed; OSM-only this month"; fi
-            rm -rf nhd.zip nhd
+            rm -rf nhd.zip nhd uac.zip
           fi
           rm -rf tiles w2.new
           python3 scripts/build_water_tiles.py water.geojsonseq tiles --simplify 5
