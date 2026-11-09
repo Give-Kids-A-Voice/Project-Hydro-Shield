@@ -496,3 +496,5 @@ jobs:
     steps:
       - id: d
         uses: actions/deploy-pages@v4
+        with:
+          timeout: 1800000   # 30 min; the site is ~600 MB with USGS creeks in every state and Pages takes longer than the 10 min default
