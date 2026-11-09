@@ -16,7 +16,8 @@ name: Build water tiles and publish site
 #   Day 24 Texas water + OSM pools (Harris,      Day 28 Dallas (TX) pools
 #          Tarrant, Dallas, Collin)
 #   Day 25 Maricopa + Clark pools, and Washoe (NV) pools   Day 28 also Williamson (TX) pools
-# Whole-state water (packed, data/water2) is built by the parallel `water2` jobs below, one job per state, each on its own day:
+# Whole-state water (packed, data/water2) is built by the parallel `water2` jobs below, one job per state, each on its own day.
+# States with `nhd:` in the matrix also get USGS National Hydrography Dataset creeks where OpenStreetMap has none (scripts/add_nhd.py):
 #   Day 3 California  Day 5 Texas   Day 7 Arizona   Day 9 Nevada    Day 11 Georgia  Day 13 North Carolina  Day 15 South Carolina
 #   Day 17 Louisiana  Day 19 Alabama  Day 21 Mississippi  Day 23 Tennessee  Day 25 Oklahoma  Day 27 Utah
 #   Day 1 Montana  Day 2 Wyoming  Day 4 New York + North Dakota  Day 6 Pennsylvania + South Dakota  Day 8 Illinois + Nebraska
@@ -74,7 +75,7 @@ jobs:
           - { st: ok, slug: oklahoma, day: 25 }
           - { st: ut, slug: utah, day: 27 }
           - { st: ny, slug: new-york, day: 4 }
-          - { st: pa, slug: pennsylvania, day: 6 }
+          - { st: pa, slug: pennsylvania, day: 6, nhd: Pennsylvania }
           - { st: il, slug: illinois, day: 8 }
           - { st: oh, slug: ohio, day: 10 }
           - { st: mi, slug: michigan, day: 12 }
@@ -129,7 +130,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: w2-${{ matrix.st }}
-          key: w2-${{ matrix.st }}-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_osm_state.py', 'scripts/build_water_tiles.py', 'scripts/pack_tiles.py') }}
+          key: w2-${{ matrix.st }}-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_osm_state.py', 'scripts/build_water_tiles.py', 'scripts/pack_tiles.py', 'scripts/add_nhd.py') }}
           restore-keys: |
             w2-${{ matrix.st }}-
       - name: Build whole-state water tiles
@@ -149,6 +150,15 @@ jobs:
           rm -f state.osm.pbf
           python3 scripts/build_osm_state.py export water.osm.pbf water.geojsonseq
           rm -f water.osm.pbf
+          # States with a USGS fill: add NHD creeks, canals and ditches that OpenStreetMap is missing (scripts/add_nhd.py).
+          # A failed USGS download just leaves this month's tiles OSM-only.
+          if [ -n "${{ matrix.nhd }}" ]; then
+            pip install -q pyogrio
+            if curl -sSfL --retry 3 -o nhd.zip "https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHD/State/GDB/NHD_H_${{ matrix.nhd }}_State_GDB.zip" && unzip -oq nhd.zip -d nhd; then
+              python3 scripts/add_nhd.py nhd/NHD_H_${{ matrix.nhd }}_State_GDB.gdb water.geojsonseq ${{ matrix.st }} || echo "USGS fill failed; OSM-only this month"
+            else echo "USGS download failed; OSM-only this month"; fi
+            rm -rf nhd.zip nhd
+          fi
           rm -rf tiles w2.new
           python3 scripts/build_water_tiles.py water.geojsonseq tiles --simplify 5
           rm -f water.geojsonseq
@@ -160,7 +170,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: w2-${{ matrix.st }}
-          key: w2-${{ matrix.st }}-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_osm_state.py', 'scripts/build_water_tiles.py', 'scripts/pack_tiles.py') }}-${{ github.run_id }}
+          key: w2-${{ matrix.st }}-${{ steps.s.outputs.month }}-${{ hashFiles('scripts/build_osm_state.py', 'scripts/build_water_tiles.py', 'scripts/pack_tiles.py', 'scripts/add_nhd.py') }}-${{ github.run_id }}
       - name: Hand tiles to the site build
         if: steps.s.outputs.run == 'true'
         uses: actions/upload-artifact@v4
