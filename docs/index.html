@@ -99,6 +99,7 @@ footer a{color:var(--water)}
     <button type="button" class="ghost" id="here">Use map center</button>
     <button type="button" class="ghost" id="install" hidden>Install app</button>
     <button type="button" class="ghost" id="mark" aria-pressed="false">+ Mark water I know about</button>
+    <button type="button" class="ghost" id="share" hidden title="Copy a link that opens Hydro-Shield on this address">Copy link</button>
   </form>
   <div class="status" id="st" role="status" aria-live="polite"></div>
 
@@ -420,8 +421,20 @@ var HS_PARTNER = (function () {
   };
   $('#f').addEventListener('submit', async function (e) {
     e.preventDefault(); var q = $('#addr').value.trim(); if (!q) { status('Enter a home address first.', true); return; }
-    try { status('Finding the address…'); var g = await geocode(q); run(g); } catch (err) { status(err.message, true); }
+    $('#share').hidden = true;
+    try { status('Finding the address…'); var g = await geocode(q); shareAddr = q; $('#share').hidden = false; run(g); } catch (err) { status(err.message, true); }
   });
+  // "Copy link": a link that opens the map on this address (#addr=..., handled below). Nothing is sent to our server.
+  var shareAddr = '';
+  $('#share').onclick = function () {
+    var btn = this, url = location.origin + location.pathname + '#addr=' + encodeURIComponent(shareAddr);
+    function done(ok) { btn.textContent = ok ? 'Link copied ✓' : 'Copy this link:'; if (!ok) status(url); setTimeout(function () { btn.textContent = 'Copy link'; }, 2500); }
+    function fallback() {
+      var t = document.createElement('textarea'); t.value = url; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+      document.body.appendChild(t); t.select(); var ok = false; try { ok = document.execCommand('copy'); } catch (e) {} t.remove(); done(ok);
+    }
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(url).then(function () { done(true); }, fallback); else fallback();
+  };
   // Share links: hydroshield.givekidsavoice.org/#addr=<address> fills the box and searches.
   // The address is after '#', so it stays in the browser and is never sent to our server.
   (function () {
@@ -430,7 +443,7 @@ var HS_PARTNER = (function () {
     if (!a) return; $('#addr').value = a;
     $('#f').dispatchEvent(new Event('submit', { cancelable: true }));
   })();
-  $('#here').onclick = function () { var c = map.getCenter(); run({ lat: c.lat, lon: c.lng, label: 'the map center' }); };
+  $('#here').onclick = function () { $('#share').hidden = true; var c = map.getCenter(); run({ lat: c.lat, lon: c.lng, label: 'the map center' }); };
   // Wait briefly so a double-click (zoom) doesn't also count as "search here"
   var clickTimer = null;
   map.on('dblclick', function () { clearTimeout(clickTimer); clickTimer = null; });
@@ -439,8 +452,8 @@ var HS_PARTNER = (function () {
     if (!marking) {
       var pt = { lat: e.latlng.lat, lon: e.latlng.lng, label: 'the point you clicked' };
       $('#addr').value = 'Point on map (' + pt.lat.toFixed(5) + ', ' + pt.lon.toFixed(5) + ')';
-      run(pt);
-      reverse(pt.lat, pt.lon).then(function (a) { if (a && lastHome === pt) { $('#addr').value = a; } });
+      $('#share').hidden = true; run(pt);
+      reverse(pt.lat, pt.lon).then(function (a) { if (a && lastHome === pt) { $('#addr').value = a; shareAddr = a; $('#share').hidden = false; } });
       return;
     }
     var kind = 'pond';
@@ -461,7 +474,7 @@ var HS_PARTNER = (function () {
       navigator.geolocation.getCurrentPosition(function (p) {
         var pt = { lat: p.coords.latitude, lon: p.coords.longitude, label: 'your location' };
         $('#addr').value = 'Your location (' + pt.lat.toFixed(5) + ', ' + pt.lon.toFixed(5) + ')';
-        run(pt);
+        $('#share').hidden = true; run(pt);
         reverse(pt.lat, pt.lon).then(function (a) { if (a && lastHome === pt) { $('#addr').value = a; } });
       }, function (err) {
         status(err.code === 1 ? 'Location is turned off for this app. Allow it in your phone settings, or type an address.' : 'Could not get your location. Type an address or tap the map.', true);
