@@ -17,7 +17,8 @@ name: Build water tiles and publish site
 #          Tarrant, Dallas, Collin)
 #   Day 25 Maricopa + Clark pools, and Washoe (NV) pools   Day 28 also Williamson (TX) pools
 # Whole-state water (packed, data/water2) is built by the parallel `water2` jobs below, one job per state, each on its own day.
-# States with `nhd:` in the matrix also get USGS National Hydrography Dataset creeks where OpenStreetMap has none (scripts/add_nhd.py):
+# Every state also gets USGS National Hydrography Dataset creeks where OpenStreetMap has none (`nhd:` in the matrix, scripts/add_nhd.py).
+# A manual run can rebuild several states at once: slot=ga-water2,nc-water2,sc-water2
 #   Day 3 California  Day 5 Texas   Day 7 Arizona   Day 9 Nevada    Day 11 Georgia  Day 13 North Carolina  Day 15 South Carolina
 #   Day 17 Louisiana  Day 19 Alabama  Day 21 Mississippi  Day 23 Tennessee  Day 25 Oklahoma  Day 27 Utah
 #   Day 1 Montana  Day 2 Wyoming  Day 4 New York + North Dakota  Day 6 Pennsylvania + South Dakota  Day 8 Illinois + Nebraska
@@ -61,54 +62,54 @@ jobs:
       max-parallel: 8   # gentle on download.geofabrik.de when many states have no cached copy (first run, new month + new script hash)
       matrix:
         include:
-          - { st: ca, slug: california, day: 3 }
-          - { st: tx, slug: texas, day: 5 }
-          - { st: az, slug: arizona, day: 7 }
-          - { st: nv, slug: nevada, day: 9 }
-          - { st: ga, slug: georgia, day: 11 }
-          - { st: nc, slug: north-carolina, day: 13 }
-          - { st: sc, slug: south-carolina, day: 15 }
-          - { st: la, slug: louisiana, day: 17 }
-          - { st: al, slug: alabama, day: 19 }
-          - { st: ms, slug: mississippi, day: 21 }
-          - { st: tn, slug: tennessee, day: 23 }
-          - { st: ok, slug: oklahoma, day: 25 }
-          - { st: ut, slug: utah, day: 27 }
-          - { st: ny, slug: new-york, day: 4 }
+          - { st: ca, slug: california, day: 3, nhd: California }
+          - { st: tx, slug: texas, day: 5, nhd: Texas }
+          - { st: az, slug: arizona, day: 7, nhd: Arizona }
+          - { st: nv, slug: nevada, day: 9, nhd: Nevada }
+          - { st: ga, slug: georgia, day: 11, nhd: Georgia }
+          - { st: nc, slug: north-carolina, day: 13, nhd: North_Carolina }
+          - { st: sc, slug: south-carolina, day: 15, nhd: South_Carolina }
+          - { st: la, slug: louisiana, day: 17, nhd: Louisiana }
+          - { st: al, slug: alabama, day: 19, nhd: Alabama }
+          - { st: ms, slug: mississippi, day: 21, nhd: Mississippi }
+          - { st: tn, slug: tennessee, day: 23, nhd: Tennessee }
+          - { st: ok, slug: oklahoma, day: 25, nhd: Oklahoma }
+          - { st: ut, slug: utah, day: 27, nhd: Utah }
+          - { st: ny, slug: new-york, day: 4, nhd: New_York }
           - { st: pa, slug: pennsylvania, day: 6, nhd: Pennsylvania }
-          - { st: il, slug: illinois, day: 8 }
-          - { st: oh, slug: ohio, day: 10 }
-          - { st: mi, slug: michigan, day: 12 }
-          - { st: nj, slug: new-jersey, day: 14 }
-          - { st: ct, slug: connecticut, day: 14 }
-          - { st: va, slug: virginia, day: 16 }
-          - { st: md, slug: maryland, day: 16 }
-          - { st: wa, slug: washington, day: 18 }
-          - { st: or, slug: oregon, day: 18 }
-          - { st: ma, slug: massachusetts, day: 20 }
-          - { st: in, slug: indiana, day: 20 }
-          - { st: mo, slug: missouri, day: 22 }
-          - { st: ks, slug: kansas, day: 22 }
-          - { st: wi, slug: wisconsin, day: 24 }
-          - { st: ia, slug: iowa, day: 24 }
-          - { st: co, slug: colorado, day: 26 }
-          - { st: nm, slug: new-mexico, day: 26 }
-          - { st: mn, slug: minnesota, day: 28 }
-          - { st: ky, slug: kentucky, day: 28 }
-          - { st: ar, slug: arkansas, day: 28 }
-          - { st: mt, slug: montana, day: 1 }
-          - { st: wy, slug: wyoming, day: 2 }
-          - { st: nd, slug: north-dakota, day: 4 }
-          - { st: sd, slug: south-dakota, day: 6 }
-          - { st: ne, slug: nebraska, day: 8 }
-          - { st: wv, slug: west-virginia, day: 10 }
-          - { st: me, slug: maine, day: 12 }
-          - { st: de, slug: delaware, day: 14 }
-          - { st: dc, slug: district-of-columbia, day: 16 }
-          - { st: id, slug: idaho, day: 18 }
-          - { st: nh, slug: new-hampshire, day: 20 }
-          - { st: vt, slug: vermont, day: 22 }
-          - { st: ri, slug: rhode-island, day: 24 }
+          - { st: il, slug: illinois, day: 8, nhd: Illinois }
+          - { st: oh, slug: ohio, day: 10, nhd: Ohio }
+          - { st: mi, slug: michigan, day: 12, nhd: Michigan }
+          - { st: nj, slug: new-jersey, day: 14, nhd: New_Jersey }
+          - { st: ct, slug: connecticut, day: 14, nhd: Connecticut }
+          - { st: va, slug: virginia, day: 16, nhd: Virginia }
+          - { st: md, slug: maryland, day: 16, nhd: Maryland }
+          - { st: wa, slug: washington, day: 18, nhd: Washington }
+          - { st: or, slug: oregon, day: 18, nhd: Oregon }
+          - { st: ma, slug: massachusetts, day: 20, nhd: Massachusetts }
+          - { st: in, slug: indiana, day: 20, nhd: Indiana }
+          - { st: mo, slug: missouri, day: 22, nhd: Missouri }
+          - { st: ks, slug: kansas, day: 22, nhd: Kansas }
+          - { st: wi, slug: wisconsin, day: 24, nhd: Wisconsin }
+          - { st: ia, slug: iowa, day: 24, nhd: Iowa }
+          - { st: co, slug: colorado, day: 26, nhd: Colorado }
+          - { st: nm, slug: new-mexico, day: 26, nhd: New_Mexico }
+          - { st: mn, slug: minnesota, day: 28, nhd: Minnesota }
+          - { st: ky, slug: kentucky, day: 28, nhd: Kentucky }
+          - { st: ar, slug: arkansas, day: 28, nhd: Arkansas }
+          - { st: mt, slug: montana, day: 1, nhd: Montana }
+          - { st: wy, slug: wyoming, day: 2, nhd: Wyoming }
+          - { st: nd, slug: north-dakota, day: 4, nhd: North_Dakota }
+          - { st: sd, slug: south-dakota, day: 6, nhd: South_Dakota }
+          - { st: ne, slug: nebraska, day: 8, nhd: Nebraska }
+          - { st: wv, slug: west-virginia, day: 10, nhd: West_Virginia }
+          - { st: me, slug: maine, day: 12, nhd: Maine }
+          - { st: de, slug: delaware, day: 14, nhd: Delaware }
+          - { st: dc, slug: district-of-columbia, day: 16, nhd: District_of_Columbia }
+          - { st: id, slug: idaho, day: 18, nhd: Idaho }
+          - { st: nh, slug: new-hampshire, day: 20, nhd: New_Hampshire }
+          - { st: vt, slug: vermont, day: 22, nhd: Vermont }
+          - { st: ri, slug: rhode-island, day: 24, nhd: Rhode_Island }
     steps:
       - name: Decide
         id: s
@@ -117,7 +118,7 @@ jobs:
           if [ "${{ github.event_name }}" = "schedule" ]; then
             [ "$d" -gt 28 ] && run=false        # same as the main job: days 29-31 do nothing
             [ "$d" = "${{ matrix.day }}" ] && rebuild=true
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.slot }}" = "${{ matrix.st }}-water2" ]; then
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [[ ",${{ github.event.inputs.slot }}," == *",${{ matrix.st }}-water2,"* ]]; then
             rebuild=true
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"; echo "rebuild=$rebuild" >> "$GITHUB_OUTPUT"
