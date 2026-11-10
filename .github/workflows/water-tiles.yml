@@ -492,9 +492,17 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.d.outputs.page_url }}
+      url: ${{ steps.d1.outputs.page_url || steps.d2.outputs.page_url || steps.d.outputs.page_url }}
     steps:
-      - id: d
+      # GitHub caps each deploy attempt at 10 minutes, and a big site can sit in the Pages queue that long.
+      # Try up to three times; a failed attempt leaves the previous site live.
+      - id: d1
         uses: actions/deploy-pages@v4
-        with:
-          timeout: 1800000   # 30 min; the site is ~600 MB with USGS creeks in every state and Pages takes longer than the 10 min default
+        continue-on-error: true
+      - id: d2
+        if: steps.d1.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - id: d
+        if: steps.d1.outcome == 'failure' && steps.d2.outcome == 'failure'
+        uses: actions/deploy-pages@v4
