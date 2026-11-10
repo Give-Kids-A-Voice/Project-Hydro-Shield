@@ -4,7 +4,8 @@
 
 - Two states can share a bundle (and a tile) along their border: their features are joined, each OSM id kept once per tile.
 - A tile that already exists in the older per-region tiles (data/water: Florida, the six Southern California counties,
-  Maricopa, Clark and the four Texas counties) is left out here, so those areas keep exactly the data they have today.
+  Maricopa, Clark and the four Texas counties) keeps only its USGS creeks here (ids starting "nhd"): those areas keep their
+  OpenStreetMap water from data/water, and the map adds these creeks on top (the map reads both for such tiles).
 """
 import gzip, json, os, sys
 
@@ -21,10 +22,12 @@ for fn, paths in names.items():
     merged = {}
     for p in paths:
         for k, feats in json.loads(gzip.decompress(open(p, 'rb').read())).items():
-            if k in old: skipped += 1; continue
+            if k in old:
+                feats = [f for f in feats if str(f['i']).startswith('nhd')]
+                if not feats: skipped += 1; continue
             if k not in merged: merged[k] = feats; continue
             ids = {f['i'] for f in merged[k]}; merged[k] += [f for f in feats if f['i'] not in ids]; shared += 1
     tiles += len(merged)
     with open(os.path.join(dest, fn), 'wb') as fo:
         fo.write(gzip.compress(json.dumps(merged, separators=(',', ':')).encode(), 9, mtime=0))
-print(len(names), 'bundles,', tiles, 'tiles,', shared, 'tiles shared by two states,', skipped, 'tiles left to data/water')
+print(len(names), 'bundles,', tiles, 'tiles,', shared, 'tiles shared by two states,', skipped, 'tiles left to data/water (no USGS creeks)')

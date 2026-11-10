@@ -27,7 +27,8 @@ name: Build water tiles and publish site
 #   Day 22 Missouri + Kansas + Vermont  Day 24 Wisconsin + Iowa + Rhode Island  Day 26 Colorado + New Mexico
 #   Day 28 Minnesota + Kentucky + Arkansas      (every state in the lower 48 plus DC; Alaska and Hawaii use live Overpass)
 # These run beside the main job, so they add no time to the busiest day's build. Tiles the older per-region builds above
-# already have (Florida, Southern California, Maricopa, Clark, the four Texas counties) keep coming from data/water.
+# already have (Florida, Southern California, Maricopa, Clark, the four Texas counties) keep their OpenStreetMap water from
+# data/water; only the USGS creeks from the whole-state build are added there (Florida's whole-state job, Day 1, exists for that).
 # Pasco, Pinellas, Citrus and St. Lucie are refreshed by hand from files the county sends or the owner downloads.
 # Refreshed pool tiles are committed back to docs/data/pools, so pushes never re-download pool data.
 # Water tiles live in the Actions cache (one entry per region per month). A push reuses the newest cached
@@ -40,7 +41,7 @@ on:
   workflow_dispatch:
     inputs:
       slot:
-        description: 'Refresh one slot now (fl-water, socal-water, hillsborough, manatee, orange, lee, polk, hernando, sarasota, duval, volusia, seminole, osceola, lake, marion, charlotte, stjohns, alachua, martin, leon, ca-parcels, az-water, nv-water, tx-water, az-nv-pools, harris, tarrant-collin, dallas, williamson, washoe; whole-state water: ca-water2, tx-water2, az-water2, nv-water2, ga-water2, nc-water2, sc-water2, la-water2, al-water2, ms-water2, tn-water2, ok-water2, ut-water2, ny-water2, pa-water2, il-water2, oh-water2, mi-water2, nj-water2, ct-water2, va-water2, md-water2, wa-water2, or-water2, ma-water2, in-water2, mo-water2, ks-water2, wi-water2, ia-water2, co-water2, nm-water2, mn-water2, ky-water2, ar-water2, mt-water2, wy-water2, nd-water2, sd-water2, ne-water2, wv-water2, me-water2, de-water2, dc-water2, id-water2, nh-water2, vt-water2, ri-water2) or leave blank to just publish'
+        description: 'Refresh one slot now (fl-water, socal-water, hillsborough, manatee, orange, lee, polk, hernando, sarasota, duval, volusia, seminole, osceola, lake, marion, charlotte, stjohns, alachua, martin, leon, ca-parcels, az-water, nv-water, tx-water, az-nv-pools, harris, tarrant-collin, dallas, williamson, washoe; whole-state water: fl-water2, ca-water2, tx-water2, az-water2, nv-water2, ga-water2, nc-water2, sc-water2, la-water2, al-water2, ms-water2, tn-water2, ok-water2, ut-water2, ny-water2, pa-water2, il-water2, oh-water2, mi-water2, nj-water2, ct-water2, va-water2, md-water2, wa-water2, or-water2, ma-water2, in-water2, mo-water2, ks-water2, wi-water2, ia-water2, co-water2, nm-water2, mn-water2, ky-water2, ar-water2, mt-water2, wy-water2, nd-water2, sd-water2, ne-water2, wv-water2, me-water2, de-water2, dc-water2, id-water2, nh-water2, vt-water2, ri-water2) or leave blank to just publish'
         required: false
         default: ''
 permissions:
@@ -62,6 +63,7 @@ jobs:
       max-parallel: 8   # gentle on download.geofabrik.de when many states have no cached copy (first run, new month + new script hash)
       matrix:
         include:
+          - { st: fl, slug: florida, day: 1, nhd: Florida }
           - { st: ca, slug: california, day: 3, nhd: California }
           - { st: tx, slug: texas, day: 5, nhd: Texas }
           - { st: az, slug: arizona, day: 7, nhd: Arizona }
