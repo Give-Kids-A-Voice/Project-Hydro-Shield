@@ -76,6 +76,7 @@ li:hover,li.on{border-color:var(--water)}
 .dist{font:500 .95rem var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 .dist small{display:block;color:var(--muted);font-size:.75rem}
 .note{font-size:.85rem;color:var(--muted);max-width:70ch}
+#radarNote{margin:8px 2px 0;max-width:none}
 .note b{color:var(--fg)}
 footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16px}
 footer a{color:var(--water)}
@@ -104,8 +105,10 @@ footer a{color:var(--water)}
   <div class="status" id="st" role="status" aria-live="polite"></div>
 
   <div class="grid">
+    <div class="mapcol">
     <div id="map" role="region" aria-label="Water hazard map"></div>
     <p class="note" id="radarNote" hidden><b>Weather radar is not our data.</b> It comes from NOAA's NEXRAD radars through the Iowa Environmental Mesonet, can run 5–10 minutes behind, and can have gaps. Rising water in ditches and creeks may not show on radar. For warnings, check <a href="https://www.weather.gov/" target="_blank" rel="noopener">weather.gov</a>. If a child is missing near water, call 911 first.</p>
+    </div>
     <div class="side">
       <div class="summary">
         <div class="near"><b id="s-near">–</b><small>nearest water edge</small></div>
