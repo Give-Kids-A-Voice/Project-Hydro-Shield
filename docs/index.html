@@ -105,6 +105,7 @@ footer a{color:var(--water)}
 
   <div class="grid">
     <div id="map" role="region" aria-label="Water hazard map"></div>
+    <p class="note" id="radarNote" hidden><b>Weather radar is not our data.</b> It comes from NOAA's NEXRAD radars through the Iowa Environmental Mesonet, can run 5–10 minutes behind, and can have gaps. Rising water in ditches and creeks may not show on radar. For warnings, check <a href="https://www.weather.gov/" target="_blank" rel="noopener">weather.gov</a>. If a child is missing near water, call 911 first.</p>
     <div class="side">
       <div class="summary">
         <div class="near"><b id="s-near">–</b><small>nearest water edge</small></div>
@@ -180,8 +181,8 @@ var HS_PARTNER = (function () {
   var radar = L.tileLayer(radarUrl(), { maxZoom: 19, maxNativeZoom: 12, opacity: .6, zIndex: 5,
     attribution: 'Radar: NOAA NEXRAD via <a href="https://mesonet.agron.iastate.edu/" target="_blank" rel="noopener">Iowa Environmental Mesonet</a>' });
   var radarTimer = null;
-  map.on('overlayadd', function (e) { if (e.layer === radar) { radar.setUrl(radarUrl()); radarTimer = setInterval(function () { radar.setUrl(radarUrl()); }, 300000); } });
-  map.on('overlayremove', function (e) { if (e.layer === radar) { clearInterval(radarTimer); radarTimer = null; } });
+  map.on('overlayadd', function (e) { if (e.layer === radar) { $('#radarNote').hidden = false; radar.setUrl(radarUrl()); radarTimer = setInterval(function () { radar.setUrl(radarUrl()); }, 300000); } });
+  map.on('overlayremove', function (e) { if (e.layer === radar) { $('#radarNote').hidden = true; clearInterval(radarTimer); radarTimer = null; } });
   L.control.layers({ 'Map': streets, 'Satellite': satellite }, { 'Weather radar': radar }, { position: 'topright', collapsed: false }).addTo(map);
   var layer = L.layerGroup().addTo(map), shapes = {};
 
