@@ -1,7 +1,7 @@
 // Hydro-Shield offline support. Keeps the app and the map data you have already looked at,
 // so it still works with a weak signal. Nothing about the user is stored or sent.
-var V = 'hs-v1';
-var SHELL = ['./', 'index.html', 'hazards.js', 'found.html', 'manifest.webmanifest', 'icons/icon-192.png',
+var V = 'hs-v2';
+var SHELL = ['./', 'index.html', 'hazards.js', 'i18n.js', 'found.html', 'manifest.webmanifest', 'icons/icon-192.png',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'];
 var DATA = 'hs-data-v1', MAX_DATA = 600;

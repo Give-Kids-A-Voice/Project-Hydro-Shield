@@ -40,6 +40,8 @@ body{background:var(--bg);color:var(--fg);font:16px/1.5 var(--body)}
 .wrap{max-width:1180px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
 header{display:flex;flex-direction:column;gap:6px}
 .partner{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--water);border-radius:8px;padding:8px 12px;font-size:.9rem}
+.toprow{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+button.lang{padding:6px 12px;font-size:.9rem}
 .partner b{color:var(--fg)}
 .partner small{color:var(--muted)}
 .partner a{color:var(--water)}
@@ -87,55 +89,57 @@ footer a{color:var(--water)}
 <div class="wrap">
   <div class="partner" id="partner" hidden></div>
   <header>
-    <span class="eyebrow">Project Hydro-Shield · Give Kids A Voice</span>
-    <h1>Every pond, canal and pool near your home</h1>
-    <p class="lede">Enter a home address. We outline the water within walking distance and rank it by how close the edge is, so you know where to search first if your child wanders.</p>
+    <div class="toprow"><span class="eyebrow">Project Hydro-Shield · Give Kids A Voice</span><button type="button" class="ghost lang" id="lang" lang="es">Español</button></div>
+    <h1 data-i18n="h1">Every pond, canal and pool near your home</h1>
+    <p class="lede" data-i18n="lede">Enter a home address. We outline the water within walking distance and rank it by how close the edge is, so you know where to search first if your child wanders.</p>
   </header>
 
   <form id="f">
-    <input type="text" id="addr" autocomplete="street-address" placeholder="Street address, city, state" aria-label="Home address" value="">
-    <select id="rad" aria-label="Search radius"><option value="300">300 m</option><option value="500" selected>500 m</option><option value="800">800 m</option><option value="1200">1.2 km</option></select>
-    <button type="submit">Map the water</button>
-    <button type="button" id="gps" hidden>Use my location</button>
-    <button type="button" class="ghost" id="here">Use map center</button>
-    <button type="button" class="ghost" id="install" hidden>Install app</button>
-    <button type="button" class="ghost" id="mark" aria-pressed="false">+ Mark water I know about</button>
-    <button type="button" class="ghost" id="share" hidden title="Copy a link that opens Hydro-Shield on this address">Copy link</button>
+    <input type="text" id="addr" autocomplete="street-address" placeholder="Street address, city, state" aria-label="Home address" data-i18n-attr="placeholder:addr_ph;aria-label:addr_al" value="">
+    <select id="rad" aria-label="Search radius" data-i18n-attr="aria-label:rad_al"><option value="300">300 m</option><option value="500" selected>500 m</option><option value="800">800 m</option><option value="1200">1.2 km</option></select>
+    <button type="submit" data-i18n="go">Map the water</button>
+    <button type="button" id="gps" hidden data-i18n="gps">Use my location</button>
+    <button type="button" class="ghost" id="here" data-i18n="here">Use map center</button>
+    <button type="button" class="ghost" id="install" hidden data-i18n="install">Install app</button>
+    <button type="button" class="ghost" id="mark" aria-pressed="false" data-i18n="mark">+ Mark water I know about</button>
+    <button type="button" class="ghost" id="share" hidden title="Copy a link that opens Hydro-Shield on this address" data-i18n="share" data-i18n-attr="title:share_t">Copy link</button>
   </form>
   <div class="status" id="st" role="status" aria-live="polite"></div>
 
   <div class="grid">
     <div class="mapcol">
-    <div id="map" role="region" aria-label="Water hazard map"></div>
-    <p class="note" id="radarNote" hidden><b>Weather radar is not our data.</b> It comes from NOAA's NEXRAD radars through the Iowa Environmental Mesonet, can run 5–10 minutes behind, and can have gaps. Rising water in ditches and creeks may not show on radar. For warnings, check <a href="https://www.weather.gov/" target="_blank" rel="noopener">weather.gov</a>. If a child is missing near water, call 911 first.</p>
+    <div id="map" role="region" aria-label="Water hazard map" data-i18n-attr="aria-label:map_al"></div>
+    <p class="note" id="radarNote" hidden data-i18n="radar"><b>Weather radar is not our data.</b> It comes from NOAA's NEXRAD radars through the Iowa Environmental Mesonet, can run 5–10 minutes behind, and can have gaps. Rising water in ditches and creeks may not show on radar. For warnings, check <a href="https://www.weather.gov/" target="_blank" rel="noopener">weather.gov</a>. If a child is missing near water, call 911 first.</p>
     </div>
     <div class="side">
       <div class="summary">
-        <div class="near"><b id="s-near">–</b><small>nearest water edge</small></div>
-        <div><b id="s-count">–</b><small>water hazards found</small></div>
-        <div><b id="s-close">–</b><small>within 150 m</small></div>
+        <div class="near"><b id="s-near">–</b><small data-i18n="s_near">nearest water edge</small></div>
+        <div><b id="s-count">–</b><small data-i18n="s_count">water hazards found</small></div>
+        <div><b id="s-close">–</b><small data-i18n="s_close">within 150 m</small></div>
       </div>
-      <ol id="list" aria-label="Water hazards, nearest first"><li style="cursor:default"><span class="sev s1"></span><div>Enter an address or click a home on the map. The nearest pools, ponds and canals will be listed here, closest first.</div><span></span></li></ol>
-      <p class="note"><b>Map data has gaps.</b> New retention ponds and some pools are missing. Use <b>Mark water I know about</b> to add anything you see on your street; it is saved on this device only. Treat this list as a starting point, not a guarantee.</p>
+      <ol id="list" aria-label="Water hazards, nearest first" data-i18n-attr="aria-label:list_al"><li style="cursor:default"><span class="sev s1"></span><div data-i18n="list0">Enter an address or click a home on the map. The nearest pools, ponds and canals will be listed here, closest first.</div><span></span></li></ol>
+      <p class="note" data-i18n="gaps"><b>Map data has gaps.</b> New retention ponds and some pools are missing. Use <b>Mark water I know about</b> to add anything you see on your street; it is saved on this device only. Treat this list as a starting point, not a guarantee.</p>
     </div>
   </div>
 
-  <section class="coverage" aria-label="Where this map works" style="margin-top:16px">
-    <p class="note"><b>For information only.</b> This map is not guaranteed to be complete or accurate. Records can be out of date, some water is missing or slightly misplaced, and pools marked "aerial estimate" are automatic detections from aerial photos that can be wrong. Always walk and check the area around your home yourself. It is not a substitute for supervision, door alarms or swim lessons.</p>
-    <p class="note"><b>Where this works.</b> Lakes, ponds, canals and streams: every state in the lower 48 and Washington, D.C. Creeks also come from the U.S. Geological Survey stream map, which includes small creeks hidden under trees that OpenStreetMap is missing: year-round creeks, canals and ditches everywhere, and seasonal creeks in and near towns. In Alaska and Hawaii the map asks the public OpenStreetMap servers live, which can be slow or busy. Florida pool records: Alachua, Brevard, Charlotte, Citrus, Collier, Duval, Hernando, Hillsborough, Indian River, Lake, Lee, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns, St. Lucie and Volusia counties, with more coming. California pool records: San Diego County, Riverside County, Contra Costa County, San Joaquin County and Solano County, and the city of Pasadena. Elsewhere in Southern California pool coverage is partial (OpenStreetMap): many backyard pools are not mapped yet. Arizona, Nevada and Texas pool records: Maricopa, Clark, Washoe, Harris, Tarrant, Dallas, Collin and Williamson counties. Everywhere else, pools shown come from OpenStreetMap and coverage is partial. These come from assessor and appraisal-district records, which can lag a year behind new pools and do not show above-ground or unpermitted pools. In the San Fernando Valley, west Los Angeles (Santa Monica to Hollywood and Downtown), the South Bay and Long Beach, and the San Gabriel Valley east to Whittier and Pomona, and Orange County, and in Tucson, San Antonio, Austin, Fort Bend County (Sugar Land, Katy, Richmond) Denton County (Denton, Flower Mound, Lewisville), Oklahoma City and Midwest City, Raleigh and Cary, Charlotte, and metro Atlanta (with Marietta, Sandy Springs, Roswell and Alpharetta), Baton Rouge, and Sacramento (with Carmichael, Citrus Heights and Rancho Cordova), and Salt Lake City (with Millcreek, Holladay and Murray; 2018 imagery, the latest summer flight there), Nashville (with Belle Meade, Green Hills and Brentwood), Kansas City on both sides of the state line (with Overland Park, Leawood, Prairie Village and Raytown), Albuquerque (with Corrales), Memphis (with Germantown, Bartlett and Cordova), St. Louis (with Ladue, Clayton, Creve Coeur, Kirkwood and Webster Groves), Birmingham (with Mountain Brook, Homewood, Vestavia Hills and Hoover), and Columbia, South Carolina (with Forest Acres; 2019 imagery, the latest summer flight there), and Louisville (with St. Matthews, Jeffersontown and Jeffersonville, Indiana; 2020 imagery, the clearest recent flight there), Cincinnati (with Indian Hill, Blue Ash, Montgomery and Hyde Park), Columbus (with Upper Arlington, Bexley and Worthington), Indianapolis (with Lawrence, Speedway and Beech Grove), Richmond, Virginia (with Short Pump, Tuckahoe and Bon Air), Greenville, South Carolina (with Mauldin, Taylors and Greer; 2019 imagery, the latest summer flight there), Tulsa (with Jenks), Mason, Maineville and Hamilton Township in Warren County, Ohio, South Bend (with Mishawaka and Granger), Waldorf, Maryland, Montgomery County, Maryland (Rockville, Gaithersburg, Potomac and Bethesda), Brighton, Michigan (with Genoa Township), Providence (with Pawtucket, Cranston and East Providence), Hitchcock, Dickinson and Santa Fe in Galveston County, Texas, Palm Beach County from Boca Raton to Jupiter (Boca, Delray, Boynton Beach, Lake Worth, West Palm Beach, Palm Beach, Wellington, Royal Palm Beach, Palm Beach Gardens, Jupiter and Tequesta), Santa Clarita, Indiana, Pennsylvania (2019 imagery, the clearest flight there), Altoona and Hollidaysburg, State College, Fresno and Clovis, Bakersfield, Metairie and New Orleans, Charleston (with Mount Pleasant and West Ashley), Wilmington, North Carolina, Savannah, Mobile, Wilmington, Delaware (with Hockessin, Pike Creek and Newark), South Jersey (Cherry Hill, Voorhees, Moorestown, Mount Laurel and Marlton), the Philadelphia suburbs in Delaware, Montgomery and Chester counties (Media, the Main Line, King of Prussia, Blue Bell, Lansdale, West Chester, Exton and Malvern), Bucks County and Northeast Philadelphia (Doylestown, Yardley, Newtown, Langhorne, Bensalem, Warminster, Southampton, Huntingdon Valley, Somerton and Fox Chase), Kent County, Delaware (Dover, Camden, Wyoming, Smyrna and Milford), Sussex County, Delaware (Lewes, Rehoboth Beach, Milton, Bethany Beach, Ocean View, Fenwick Island, Selbyville, Millsboro, Georgetown, Seaford and Laurel), Ocean City, Maryland (with West Ocean City, Ocean Pines and Berlin), the rest of South Jersey (Medford, Hammonton, Sewell, Glassboro, Deptford, Vineland, Millville, Egg Harbor Township, Galloway, Absecon, Mays Landing, Somers Point, Linwood, Margate, Ventnor, Atlantic City, Ocean City, Sea Isle City, Avalon, Stone Harbor, the Wildwoods and Cape May), McAllen, Edinburg, Mission and Pharr, El Paso, Corpus Christi, Brownsville, Lake Havasu City, Yuma, the Grand Strand (Myrtle Beach, North Myrtle Beach and Surfside Beach), Virginia Beach and Chesapeake, Pensacola and Gulf Breeze, Lubbock, Midland, Odessa, Killeen and Harker Heights, Waco and Woodway, Beaumont, Shreveport and Bossier City, Lafayette and Youngsville, Little Rock and North Little Rock, Huntsville and Madison, Montgomery, Jackson MS, west Augusta with Martinez, Evans and Grovetown, Macon, St. George, Las Cruces, Columbus GA, Modesto and Ceres, Visalia, Redding, Boise and Meridian, Knoxville, and Chattanooga, where there are no county pool records, the map also shows pools estimated from USDA aerial imagery (2018–2023): these are automatic detections, so a few are wrong and some pools are missed, and pools built since the photos are not shown. Free, no sign-up, nothing you type is saved.</p>
-    <p class="note"><b>Install it as an app.</b> On iPhone: tap Share, then Add to Home Screen. On Android, Chrome or Edge: use the Install app button or the browser menu. The app adds a Use my location button (your location stays on your device) and keeps areas you have looked at available with a weak signal.</p>
+  <section class="coverage" aria-label="Where this map works" data-i18n-attr="aria-label:cov_al" style="margin-top:16px">
+    <p class="note" data-i18n="disclaimer"><b>For information only.</b> This map is not guaranteed to be complete or accurate. Records can be out of date, some water is missing or slightly misplaced, and pools marked "aerial estimate" are automatic detections from aerial photos that can be wrong. Always walk and check the area around your home yourself. It is not a substitute for supervision, door alarms or swim lessons.</p>
+    <!-- Keep the Spanish copy of this note (coverage in i18n.js) in step. -->
+    <p class="note" data-i18n="coverage"><b>Where this works.</b> Lakes, ponds, canals and streams: every state in the lower 48 and Washington, D.C. Creeks also come from the U.S. Geological Survey stream map, which includes small creeks hidden under trees that OpenStreetMap is missing: year-round creeks, canals and ditches everywhere, and seasonal creeks in and near towns. In Alaska and Hawaii the map asks the public OpenStreetMap servers live, which can be slow or busy. Florida pool records: Alachua, Brevard, Charlotte, Citrus, Collier, Duval, Hernando, Hillsborough, Indian River, Lake, Lee, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns, St. Lucie and Volusia counties, with more coming. California pool records: San Diego County, Riverside County, Contra Costa County, San Joaquin County and Solano County, and the city of Pasadena. Elsewhere in Southern California pool coverage is partial (OpenStreetMap): many backyard pools are not mapped yet. Arizona, Nevada and Texas pool records: Maricopa, Clark, Washoe, Harris, Tarrant, Dallas, Collin and Williamson counties. Everywhere else, pools shown come from OpenStreetMap and coverage is partial. These come from assessor and appraisal-district records, which can lag a year behind new pools and do not show above-ground or unpermitted pools. In the San Fernando Valley, west Los Angeles (Santa Monica to Hollywood and Downtown), the South Bay and Long Beach, and the San Gabriel Valley east to Whittier and Pomona, and Orange County, and in Tucson, San Antonio, Austin, Fort Bend County (Sugar Land, Katy, Richmond) Denton County (Denton, Flower Mound, Lewisville), Oklahoma City and Midwest City, Raleigh and Cary, Charlotte, and metro Atlanta (with Marietta, Sandy Springs, Roswell and Alpharetta), Baton Rouge, and Sacramento (with Carmichael, Citrus Heights and Rancho Cordova), and Salt Lake City (with Millcreek, Holladay and Murray; 2018 imagery, the latest summer flight there), Nashville (with Belle Meade, Green Hills and Brentwood), Kansas City on both sides of the state line (with Overland Park, Leawood, Prairie Village and Raytown), Albuquerque (with Corrales), Memphis (with Germantown, Bartlett and Cordova), St. Louis (with Ladue, Clayton, Creve Coeur, Kirkwood and Webster Groves), Birmingham (with Mountain Brook, Homewood, Vestavia Hills and Hoover), and Columbia, South Carolina (with Forest Acres; 2019 imagery, the latest summer flight there), and Louisville (with St. Matthews, Jeffersontown and Jeffersonville, Indiana; 2020 imagery, the clearest recent flight there), Cincinnati (with Indian Hill, Blue Ash, Montgomery and Hyde Park), Columbus (with Upper Arlington, Bexley and Worthington), Indianapolis (with Lawrence, Speedway and Beech Grove), Richmond, Virginia (with Short Pump, Tuckahoe and Bon Air), Greenville, South Carolina (with Mauldin, Taylors and Greer; 2019 imagery, the latest summer flight there), Tulsa (with Jenks), Mason, Maineville and Hamilton Township in Warren County, Ohio, South Bend (with Mishawaka and Granger), Waldorf, Maryland, Montgomery County, Maryland (Rockville, Gaithersburg, Potomac and Bethesda), Brighton, Michigan (with Genoa Township), Providence (with Pawtucket, Cranston and East Providence), Hitchcock, Dickinson and Santa Fe in Galveston County, Texas, Palm Beach County from Boca Raton to Jupiter (Boca, Delray, Boynton Beach, Lake Worth, West Palm Beach, Palm Beach, Wellington, Royal Palm Beach, Palm Beach Gardens, Jupiter and Tequesta), Santa Clarita, Indiana, Pennsylvania (2019 imagery, the clearest flight there), Altoona and Hollidaysburg, State College, Fresno and Clovis, Bakersfield, Metairie and New Orleans, Charleston (with Mount Pleasant and West Ashley), Wilmington, North Carolina, Savannah, Mobile, Wilmington, Delaware (with Hockessin, Pike Creek and Newark), South Jersey (Cherry Hill, Voorhees, Moorestown, Mount Laurel and Marlton), the Philadelphia suburbs in Delaware, Montgomery and Chester counties (Media, the Main Line, King of Prussia, Blue Bell, Lansdale, West Chester, Exton and Malvern), Bucks County and Northeast Philadelphia (Doylestown, Yardley, Newtown, Langhorne, Bensalem, Warminster, Southampton, Huntingdon Valley, Somerton and Fox Chase), Kent County, Delaware (Dover, Camden, Wyoming, Smyrna and Milford), Sussex County, Delaware (Lewes, Rehoboth Beach, Milton, Bethany Beach, Ocean View, Fenwick Island, Selbyville, Millsboro, Georgetown, Seaford and Laurel), Ocean City, Maryland (with West Ocean City, Ocean Pines and Berlin), the rest of South Jersey (Medford, Hammonton, Sewell, Glassboro, Deptford, Vineland, Millville, Egg Harbor Township, Galloway, Absecon, Mays Landing, Somers Point, Linwood, Margate, Ventnor, Atlantic City, Ocean City, Sea Isle City, Avalon, Stone Harbor, the Wildwoods and Cape May), McAllen, Edinburg, Mission and Pharr, El Paso, Corpus Christi, Brownsville, Lake Havasu City, Yuma, the Grand Strand (Myrtle Beach, North Myrtle Beach and Surfside Beach), Virginia Beach and Chesapeake, Pensacola and Gulf Breeze, Lubbock, Midland, Odessa, Killeen and Harker Heights, Waco and Woodway, Beaumont, Shreveport and Bossier City, Lafayette and Youngsville, Little Rock and North Little Rock, Huntsville and Madison, Montgomery, Jackson MS, west Augusta with Martinez, Evans and Grovetown, Macon, St. George, Las Cruces, Columbus GA, Modesto and Ceres, Visalia, Redding, Boise and Meridian, Knoxville, and Chattanooga, where there are no county pool records, the map also shows pools estimated from USDA aerial imagery (2018–2023): these are automatic detections, so a few are wrong and some pools are missed, and pools built since the photos are not shown. Free, no sign-up, nothing you type is saved.</p>
+    <p class="note" data-i18n="installnote"><b>Install it as an app.</b> On iPhone: tap Share, then Add to Home Screen. On Android, Chrome or Edge: use the Install app button or the browser menu. The app adds a Use my location button (your location stays on your device) and keeps areas you have looked at available with a weak signal.</p>
   </section>
 
   <footer>
-    <span>Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>, the Alachua, Brevard, Charlotte, Citrus, Collier, Duval, Hernando, Indian River, Lake, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns, St. Lucie and Volusia County Property Appraisers, Lee County GIS, and Florida Department of Revenue parcel locations (public records). Southern California water: OpenStreetMap contributors. San Diego County pool records: <a href="https://www.sangis.org/" target="_blank" rel="noopener">SanGIS</a>/SANDAG regional parcel data (San Diego County Assessor). Riverside County pool records: Riverside County Assessor open data (CREST property characteristics and parcels). Pasadena pool records: City of Pasadena land base parcel data (Los Angeles County Assessor). Contra Costa County pool records: Contra Costa County Department of Information Technology assessor parcel data. San Joaquin County pool records: San Joaquin County Assessor parcel data. Solano County pool records: Solano County public parcel data. Other Southern California pools: OpenStreetMap contributors (partial coverage). Water for every other state in the lower 48 and Washington, D.C.: OpenStreetMap contributors. Maricopa County pool records: Maricopa County Enterprise GIS parcel data. Clark County pool records: Clark County Assessor residential data and parcel map, as republished by the City of Las Vegas Office of GIS. Harris County pool records: Harris Central Appraisal District. Tarrant County pool records: Tarrant Appraisal District. Dallas County pool records: Dallas Central Appraisal District. Collin County pool records: Collin Central Appraisal District. Williamson County pool records: Williamson Central Appraisal District open data. Washoe County pool records: Washoe County Assessor public data. Address search and satellite imagery by Esri; address search fallback by Nominatim. Weather radar: NOAA NEXRAD, via the Iowa Environmental Mesonet at Iowa State University. Aerial pool estimates: derived from USDA NAIP imagery.</span>
-    <span>Not a substitute for supervision, door alarms or swim lessons.</span>
-    <a href="found.html">Make an "If found" card for a shoe tag</a>
-    <a href="https://github.com/Give-Kids-A-Voice/Project-Hydro-Shield" target="_blank" rel="noopener">Source on GitHub</a>
+    <span data-i18n="credits">Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>, the Alachua, Brevard, Charlotte, Citrus, Collier, Duval, Hernando, Indian River, Lake, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns, St. Lucie and Volusia County Property Appraisers, Lee County GIS, and Florida Department of Revenue parcel locations (public records). Southern California water: OpenStreetMap contributors. San Diego County pool records: <a href="https://www.sangis.org/" target="_blank" rel="noopener">SanGIS</a>/SANDAG regional parcel data (San Diego County Assessor). Riverside County pool records: Riverside County Assessor open data (CREST property characteristics and parcels). Pasadena pool records: City of Pasadena land base parcel data (Los Angeles County Assessor). Contra Costa County pool records: Contra Costa County Department of Information Technology assessor parcel data. San Joaquin County pool records: San Joaquin County Assessor parcel data. Solano County pool records: Solano County public parcel data. Other Southern California pools: OpenStreetMap contributors (partial coverage). Water for every other state in the lower 48 and Washington, D.C.: OpenStreetMap contributors. Maricopa County pool records: Maricopa County Enterprise GIS parcel data. Clark County pool records: Clark County Assessor residential data and parcel map, as republished by the City of Las Vegas Office of GIS. Harris County pool records: Harris Central Appraisal District. Tarrant County pool records: Tarrant Appraisal District. Dallas County pool records: Dallas Central Appraisal District. Collin County pool records: Collin Central Appraisal District. Williamson County pool records: Williamson Central Appraisal District open data. Washoe County pool records: Washoe County Assessor public data. Address search and satellite imagery by Esri; address search fallback by Nominatim. Weather radar: NOAA NEXRAD, via the Iowa Environmental Mesonet at Iowa State University. Aerial pool estimates: derived from USDA NAIP imagery.</span>
+    <span data-i18n="notsub">Not a substitute for supervision, door alarms or swim lessons.</span>
+    <a href="found.html" data-i18n="found">Make an "If found" card for a shoe tag</a>
+    <a href="https://github.com/Give-Kids-A-Voice/Project-Hydro-Shield" target="_blank" rel="noopener" data-i18n="source">Source on GitHub</a>
   </footer>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="hazards.js"></script>
+<script src="i18n.js"></script>
 <script>
 // Anonymous usage count for Give Kids A Voice: sends only an event name, nothing about the visitor or address.
 function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json/hydroshield/v1/hit?e='+e);}catch(_){}}
@@ -145,10 +149,12 @@ function hsCount(e){try{navigator.sendBeacon('https://givekidsavoice.org/wp-json
 // County editions (slugs are county-state, e.g. hillsborough-fl): /?county=<slug> (or the short link /<slug>/) opens on that county with its credit line.
 // Nothing about the visitor is sent anywhere; the slug is remembered on this device only so the installed app reopens on the same county.
 var HS_PARTNERS = {
-  'hillsborough-fl': { name: 'Hillsborough County', state: 'FL', center: [27.93, -82.35], zoom: 10,
-    credit: 'Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>.' },
-  'pasco-fl': { name: 'Pasco County', state: 'FL', center: [28.31, -82.45], zoom: 10,
-    credit: 'Pool records courtesy of the <a href="https://www.pascopa.com/" target="_blank" rel="noopener">Pasco County Property Appraiser</a>.' }
+  'hillsborough-fl': { name: 'Hillsborough County', name_es: 'condado de Hillsborough', state: 'FL', center: [27.93, -82.35], zoom: 10,
+    credit: 'Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>.',
+    credit_es: 'Registros de piscinas cortesía del <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>.' },
+  'pasco-fl': { name: 'Pasco County', name_es: 'condado de Pasco', state: 'FL', center: [28.31, -82.45], zoom: 10,
+    credit: 'Pool records courtesy of the <a href="https://www.pascopa.com/" target="_blank" rel="noopener">Pasco County Property Appraiser</a>.',
+    credit_es: 'Registros de piscinas cortesía del <a href="https://www.pascopa.com/" target="_blank" rel="noopener">Pasco County Property Appraiser</a>.' }
 };
 var HS_PARTNER_ALIASES = { hillsborough: 'hillsborough-fl', pasco: 'pasco-fl' }; // early link, kept working
 var HS_PARTNER = (function () {
@@ -162,16 +168,25 @@ var HS_PARTNER = (function () {
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
+  var T = hsT;
   var css = getComputedStyle(document.documentElement);
   var C = function (n) { return css.getPropertyValue(n).trim(); };
   // Opens on all of Florida. No location is ever requested from the visitor.
   var map = L.map('map', { zoomControl: true }).setView(HS_PARTNER ? HS_PARTNER.center : [27.9, -83.2], HS_PARTNER ? HS_PARTNER.zoom : 7);
-  if (HS_PARTNER) {
-    var pb = $('#partner'); pb.hidden = false;
-    pb.innerHTML = '<b>' + HS_PARTNER.name + ' edition</b> <small>' + HS_PARTNER.credit + '</small>';
-    document.title = 'Hydro-Shield Water Map · ' + HS_PARTNER.name;
-    $('#addr').placeholder = 'Street address in ' + HS_PARTNER.name + ', ' + HS_PARTNER.state;
+  // Fixed text in the visitor's language (i18n.js), then the county edition's own lines on top.
+  function pageText() {
+    hsApplyLang();
+    var es = HS_LANG === 'es';
+    $('#lang').textContent = es ? 'English' : 'Español'; $('#lang').lang = es ? 'en' : 'es';
+    document.title = T('Hydro-Shield Water Map');
+    if (HS_PARTNER) {
+      var pn = es ? HS_PARTNER.name_es : HS_PARTNER.name, pb = $('#partner'); pb.hidden = false;
+      pb.innerHTML = '<b>' + T('{name} edition', { name: pn }) + '</b> <small>' + (es ? HS_PARTNER.credit_es : HS_PARTNER.credit) + '</small>';
+      document.title += ' · ' + pn;
+      $('#addr').placeholder = T('Street address in {name}, {state}', { name: pn, state: HS_PARTNER.state });
+    }
   }
+  pageText();
   var streets = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
   var satellite = L.layerGroup([
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Imagery © Esri, Maxar, Earthstar Geographics' }),
@@ -186,7 +201,13 @@ var HS_PARTNER = (function () {
   var radarTimer = null;
   map.on('overlayadd', function (e) { if (e.layer === radar) { $('#radarNote').hidden = false; radar.setUrl(radarUrl()); radarTimer = setInterval(function () { radar.setUrl(radarUrl()); }, 300000); } });
   map.on('overlayremove', function (e) { if (e.layer === radar) { $('#radarNote').hidden = true; clearInterval(radarTimer); radarTimer = null; } });
-  L.control.layers({ 'Map': streets, 'Satellite': satellite }, { 'Weather radar': radar }, { position: 'topright', collapsed: false }).addTo(map);
+  var layersCtl = null;
+  function layerControl() {
+    if (layersCtl) layersCtl.remove();
+    var base = {}, over = {}; base[T('Map')] = streets; base[T('Satellite')] = satellite; over[T('Weather radar')] = radar;
+    layersCtl = L.control.layers(base, over, { position: 'topright', collapsed: false }).addTo(map);
+  }
+  layerControl();
   var layer = L.layerGroup().addTo(map), shapes = {};
 
   var OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
@@ -200,7 +221,7 @@ var HS_PARTNER = (function () {
       if (c && c.score >= 80) return { lat: c.location.y, lon: c.location.x, label: c.address };
     } catch (e) {}
     var r2 = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } });
-    var j2 = await r2.json(); if (!j2.length) throw new Error('We could not find that address. Check the spelling, or click your home on the map instead.');
+    var j2 = await r2.json(); if (!j2.length) throw new Error(T('We could not find that address. Check the spelling, or click your home on the map instead.'));
     return { lat: +j2[0].lat, lon: +j2[0].lon, label: j2[0].display_name };
   }
   // Live Overpass is only a fallback for places with no prebuilt tiles. Under heavy traffic the public servers
@@ -209,7 +230,7 @@ var HS_PARTNER = (function () {
   // 2 minutes before asking again. Every storage call is guarded: private browsing may refuse or throw.
   var cache = {}, OV_KEY = 'hydroshield-ov:', OV_PAUSE = 'hydroshield-ov-pause', OV_TTL = 7 * 864e5, OV_MAX = 2e6;
   var BUSY_MSG = 'The map data servers are busy right now, so lakes, ponds and canals could not load here. Please try again in a few minutes.';
-  function busyErr() { var e = new Error(BUSY_MSG); e.busy = true; return e; }
+  function busyErr() { var e = new Error(T(BUSY_MSG)); e.busy = true; return e; }
   function ovKey(lat, lon, rad) {
     var dLat = rad / 110574, dLon = rad / (111320 * Math.cos(lat * Math.PI / 180)), r = function (v) { return v.toFixed(3); };
     return [r(lat - dLat), r(lon - dLon), r(lat + dLat), r(lon + dLon)].join(',');
@@ -242,7 +263,7 @@ var HS_PARTNER = (function () {
     var hit = ovGet(key); if (hit) return (cache[key] = hit);
     if (Date.now() < ovPauseMem || ovPaused()) throw busyErr();
     var q = HydroShield.overpassQuery(lat, lon, rad);
-    var slow = setTimeout(function () { status('The map data servers are slow right now. Still trying…'); }, 8000);
+    var slow = setTimeout(function () { status(T('The map data servers are slow right now. Still trying…')); }, 8000);
     try {
       var start = Math.floor(Math.random() * OVERPASS.length);   // spread load across servers
       for (var n = 0; n < 2; n++) {
@@ -258,18 +279,18 @@ var HS_PARTNER = (function () {
       throw busyErr();
     } finally { clearTimeout(slow); }
   }
-  function fmt(m) { return m < 1 ? 'at home' : m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1) + ' km'; }
+  function fmt(m) { return m < 1 ? T('at home') : m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1) + ' km'; }
   function ft(m) { return Math.round(m * 3.281).toLocaleString() + ' ft'; }
 
   function render(home, rad, hz) {
     layer.clearLayers(); shapes = {};
     L.circle([home.lat, home.lon], { radius: rad, color: '#3388ff', weight: 3, fillOpacity: 0.2, interactive: false }).addTo(layer);
-    L.circleMarker([home.lat, home.lon], { radius: 8, color: '#fff', weight: 3, fillColor: C('--danger'), fillOpacity: 1 }).addTo(layer).bindTooltip('Home', { permanent: false });
+    L.circleMarker([home.lat, home.lon], { radius: 8, color: '#fff', weight: 3, fillColor: C('--danger'), fillOpacity: 1 }).addTo(layer).bindTooltip(T('Home'), { permanent: false });
     hz.forEach(function (h, idx) {
       var col = h.cls === 'pool' ? C('--pool') : C('--water');
       var opts = { color: col, weight: h.line ? 4 : 2, fillColor: h.cls === 'pool' ? C('--pool') : C('--water-fill'), fillOpacity: .45 };
       var shp = h.line ? L.polyline(h.coords, opts) : L.polygon(h.coords, opts);
-      shp.addTo(layer).bindPopup('<b>' + h.name.replace(/</g, '&lt;') + '</b><br>' + h.kind + '<br>' + fmt(h.dist) + ' from home');
+      shp.addTo(layer).bindPopup('<b>' + T(h.name).replace(/</g, '&lt;') + '</b><br>' + T(h.kind) + '<br>' + T('{d} from home', { d: fmt(h.dist) }));
       if (idx < 10) L.polyline([[home.lat, home.lon], h.nearest], { color: col, weight: 1, dashArray: '2 4' }).addTo(layer);
       shapes[h.id] = shp;
     });
@@ -277,14 +298,14 @@ var HS_PARTNER = (function () {
     hz.forEach(function (h) {
       var li = document.createElement('li'); li.tabIndex = 0;
       li.innerHTML = '<span class="sev s' + h.sev + '"></span><div><div class="nm"></div><div class="kind"></div></div><div class="dist">' + fmt(h.dist) + '<small>' + ft(h.dist) + '</small></div>';
-      li.querySelector('.nm').textContent = h.name; li.querySelector('.kind').textContent = h.kind;
+      li.querySelector('.nm').textContent = T(h.name); li.querySelector('.kind').textContent = T(h.kind);
       var go = function () { document.querySelectorAll('li.on').forEach(function (x) { x.classList.remove('on'); }); li.classList.add('on'); map.fitBounds(shapes[h.id].getBounds().extend([home.lat, home.lon]), { padding: [30, 30], maxZoom: 18 }); shapes[h.id].openPopup(); };
       li.onclick = go; li.onkeydown = function (e) { if (e.key === 'Enter') go(); };
       list.appendChild(li);
     });
-    if (!hz.length) list.innerHTML = '<li style="cursor:default"><span class="sev s1"></span><div>No mapped water in this radius. Check your street in person anyway.</div><span></span></li>';
+    if (!hz.length) list.innerHTML = '<li style="cursor:default"><span class="sev s1"></span><div>' + T('No mapped water in this radius. Check your street in person anyway.') + '</div><span></span></li>';
     var risky = hz.filter(function (h) { return !h.ours; });
-    $('#s-near').textContent = risky.length ? fmt(risky[0].dist) : 'none';
+    $('#s-near').textContent = risky.length ? fmt(risky[0].dist) : T('none');
     $('#s-count').textContent = risky.length;
     $('#s-close').textContent = risky.filter(function (h) { return h.dist <= 150; }).length;
     map.fitBounds(L.latLng(home.lat, home.lon).toBounds(rad * 2), { padding: [10, 10] });
@@ -392,7 +413,7 @@ var HS_PARTNER = (function () {
     lastHome = home;
     hsCount('search');
     var rad = +$('#rad').value;
-    status('Loading water data around ' + (home.label || 'the map center') + '…');
+    status(T('Loading water data around {label}…', { label: T(home.label || 'the map center') }));
     var res = await Promise.allSettled([
       waterTiles(home.lat, home.lon, rad).then(function (t) { return t || overpass(home.lat, home.lon, rad); }),
       countyPools(home.lat, home.lon, rad)]);
@@ -422,29 +443,29 @@ var HS_PARTNER = (function () {
     render(home, rad, hz);
     var failed = res[0].status !== 'fulfilled';
     // When lakes/ponds/canals failed to load, say so first; "0 hazards" alone would read as "no water here".
-    var bits = failed ? [BUSY_MSG, 'Showing only what did load: ' + hz.length + ' water hazards within ' + fmt(rad) + '.'] : [hz.length + ' water hazards within ' + fmt(rad) + ', nearest first.'];
-    if (failed && !hz.length) { $('#list').innerHTML = '<li style="cursor:default"><span class="sev s3"></span><div>Lakes, ponds and canals did not load (map data servers busy). Try again in a few minutes, and check your street in person.</div><span></span></li>'; $('#s-near').textContent = '?'; }
+    var bits = failed ? [T(BUSY_MSG), T('Showing only what did load: {n} water hazards within {r}.', { n: hz.length, r: fmt(rad) })] : [T('{n} water hazards within {r}, nearest first.', { n: hz.length, r: fmt(rad) })];
+    if (failed && !hz.length) { $('#list').innerHTML = '<li style="cursor:default"><span class="sev s3"></span><div>' + T('Lakes, ponds and canals did not load (map data servers busy). Try again in a few minutes, and check your street in person.') + '</div><span></span></li>'; $('#s-near').textContent = '?'; }
     var nOsm = pools.filter(function (p) { return p[2] === 'osm'; }).length, nOsm2 = osm.elements.filter(function (e) { return e._osmPool; }).length;
-    if (pools.length - nOsm) bits.push((pools.length - nOsm) + ' pools from county records.');
-    if (nOsm + nOsm2) bits.push((nOsm + nOsm2) + ' pools from OpenStreetMap (pool coverage here is partial).');
-    if (air.length) bits.push(air.length + ' pools estimated from aerial photos (may include errors; please verify).');
+    if (pools.length - nOsm) bits.push(T('{n} pools from county records.', { n: pools.length - nOsm }));
+    if (nOsm + nOsm2) bits.push(T('{n} pools from OpenStreetMap (pool coverage here is partial).', { n: nOsm + nOsm2 }));
+    if (air.length) bits.push(T('{n} pools estimated from aerial photos (may include errors; please verify).', { n: air.length }));
     status(bits.join(' '), failed);
   }
   var marking = false;
   $('#mark').onclick = function () {
-    marking = !marking; this.setAttribute('aria-pressed', marking); this.textContent = marking ? 'Tap the map where the water is…' : '+ Mark water I know about';
+    marking = !marking; this.setAttribute('aria-pressed', marking); this.textContent = marking ? T('Tap the map where the water is…') : T('+ Mark water I know about');
     map.getContainer().classList.toggle('marking', marking);
   };
   $('#f').addEventListener('submit', async function (e) {
-    e.preventDefault(); var q = $('#addr').value.trim(); if (!q) { status('Enter a home address first.', true); return; }
+    e.preventDefault(); var q = $('#addr').value.trim(); if (!q) { status(T('Enter a home address first.'), true); return; }
     $('#share').hidden = true;
-    try { status('Finding the address…'); var g = await geocode(q); shareAddr = q; $('#share').hidden = false; run(g); } catch (err) { status(err.message, true); }
+    try { status(T('Finding the address…')); var g = await geocode(q); shareAddr = q; $('#share').hidden = false; run(g); } catch (err) { status(err.message, true); }
   });
   // "Copy link": a link that opens the map on this address (#addr=..., handled below). Nothing is sent to our server.
   var shareAddr = '';
   $('#share').onclick = function () {
-    var btn = this, url = location.origin + location.pathname + '#addr=' + encodeURIComponent(shareAddr);
-    function done(ok) { btn.textContent = ok ? 'Link copied ✓' : 'Copy this link:'; if (!ok) status(url); setTimeout(function () { btn.textContent = 'Copy link'; }, 2500); }
+    var btn = this, url = location.origin + location.pathname + (HS_LANG === 'es' ? '?lang=es' : '') + '#addr=' + encodeURIComponent(shareAddr);
+    function done(ok) { btn.textContent = ok ? T('Link copied ✓') : T('Copy this link:'); if (!ok) status(url); setTimeout(function () { btn.textContent = T('Copy link'); }, 2500); }
     function fallback() {
       var t = document.createElement('textarea'); t.value = url; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
       document.body.appendChild(t); t.select(); var ok = false; try { ok = document.execCommand('copy'); } catch (e) {} t.remove(); done(ok);
@@ -470,18 +491,18 @@ var HS_PARTNER = (function () {
   function onMapClick(e) {
     if (!marking) {
       var pt = { lat: e.latlng.lat, lon: e.latlng.lng, label: 'the point you clicked' };
-      $('#addr').value = 'Point on map (' + pt.lat.toFixed(5) + ', ' + pt.lon.toFixed(5) + ')';
+      $('#addr').value = T('Point on map ({lat}, {lon})', { lat: pt.lat.toFixed(5), lon: pt.lon.toFixed(5) });
       $('#share').hidden = true; run(pt);
       reverse(pt.lat, pt.lon).then(function (a) { if (a && lastHome === pt) { $('#addr').value = a; shareAddr = a; $('#share').hidden = false; } });
       return;
     }
     var kind = 'pond';
-    var pop = L.popup().setLatLng(e.latlng).setContent('<div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" data-k="pool">Pool</button><button type="button" data-k="pond">Pond / other water</button><button type="button" data-k="ours">Our pool (OK with an adult)</button></div>').openOn(map);
+    var pop = L.popup().setLatLng(e.latlng).setContent('<div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" data-k="pool">' + T('Pool') + '</button><button type="button" data-k="pond">' + T('Pond / other water') + '</button><button type="button" data-k="ours">' + T('Our pool (OK with an adult)') + '</button></div>').openOn(map);
     pop.getElement().addEventListener('click', function (ev) {
       var k = ev.target.getAttribute && ev.target.getAttribute('data-k'); if (!k) return;
       var m = marks(); m.push([+e.latlng.lat.toFixed(6), +e.latlng.lng.toFixed(6), k]); saveMarks(m);
       map.closePopup(); $('#mark').click(); if (lastHome) run(lastHome);
-      status(k === 'ours' ? 'Saved as your pool: shown in green, still covered by the alarm when he is alone or at night.' : 'Saved on this device. It now counts in your water list.');
+      status(k === 'ours' ? T('Saved as your pool: shown in green, still covered by the alarm when he is alone or at night.') : T('Saved on this device. It now counts in your water list.'));
     });
   }
   // Installed app: "Use my location". The position stays on this device; it is only used to center the search.
@@ -489,14 +510,14 @@ var HS_PARTNER = (function () {
   if (standalone && 'geolocation' in navigator) {
     $('#gps').hidden = false;
     $('#gps').onclick = function () {
-      status('Finding your location…');
+      status(T('Finding your location…'));
       navigator.geolocation.getCurrentPosition(function (p) {
         var pt = { lat: p.coords.latitude, lon: p.coords.longitude, label: 'your location' };
-        $('#addr').value = 'Your location (' + pt.lat.toFixed(5) + ', ' + pt.lon.toFixed(5) + ')';
+        $('#addr').value = T('Your location ({lat}, {lon})', { lat: pt.lat.toFixed(5), lon: pt.lon.toFixed(5) });
         $('#share').hidden = true; run(pt);
         reverse(pt.lat, pt.lon).then(function (a) { if (a && lastHome === pt) { $('#addr').value = a; } });
       }, function (err) {
-        status(err.code === 1 ? 'Location is turned off for this app. Allow it in your phone settings, or type an address.' : 'Could not get your location. Type an address or tap the map.', true);
+        status(err.code === 1 ? T('Location is turned off for this app. Allow it in your phone settings, or type an address.') : T('Could not get your location. Type an address or tap the map.'), true);
       }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
     };
   }
@@ -506,7 +527,16 @@ var HS_PARTNER = (function () {
   $('#install').onclick = function () { if (!installEvt) return; installEvt.prompt(); installEvt.userChoice.finally(function () { installEvt = null; $('#install').hidden = true; }); };
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
   hsCount('view');
-  status(standalone ? 'Tap Use my location, type an address, or tap the map.' : 'Type a home address above, or click a home on the map.');
+  function hello() { status(T(standalone ? 'Tap Use my location, type an address, or tap the map.' : 'Type a home address above, or click a home on the map.')); }
+  if (!lastHome) hello();
+  // Language button: switch the whole page, and redo the current search so its list is in the new language too.
+  $('#lang').onclick = function () {
+    HS_LANG = HS_LANG === 'es' ? 'en' : 'es'; try { localStorage.setItem('hs-lang', HS_LANG); } catch (e) {}
+    if (marking) { marking = false; map.getContainer().classList.remove('marking'); $('#mark').setAttribute('aria-pressed', 'false'); }
+    var shareShown = !$('#share').hidden;
+    pageText(); layerControl(); $('#share').hidden = !shareShown;
+    if (lastHome) { if (/^(Point on map|Punto en el mapa|Your location|Su ubicación) \(/.test($('#addr').value)) $('#addr').value = T(lastHome.label === 'your location' ? 'Your location ({lat}, {lon})' : 'Point on map ({lat}, {lon})', { lat: lastHome.lat.toFixed(5), lon: lastHome.lon.toFixed(5) }); run(lastHome); } else hello();
+  };
 })();
 </script>
 </body>
