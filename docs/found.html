@@ -29,6 +29,8 @@ label{font-weight:700;font-size:.95rem;display:flex;flex-direction:column;gap:4p
 input,textarea{font:inherit;font-size:1rem;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg);width:100%}
 textarea{min-height:90px}
 button{font:700 1rem var(--body);padding:12px 16px;border-radius:10px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+.toprow{display:flex;justify-content:flex-end}
+button.lang{background:transparent;color:var(--accent);border:1px solid var(--accent);padding:6px 12px;font-size:.9rem}
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 code{overflow-wrap:anywhere;font-size:.85rem}
 section{display:flex;flex-direction:column;gap:14px}
@@ -36,86 +38,174 @@ section{display:flex;flex-direction:column;gap:14px}
 </head>
 <body>
 <div class="wrap">
+  <div class="toprow"><button type="button" class="lang" id="lang" lang="es">Español</button></div>
   <!-- Shown to whoever taps the tag -->
   <section id="card" hidden>
-    <div class="band"><b id="c-head">I am autistic and non-verbal.</b><span>I may not answer, look at you, or come when called. Please stay with me and call my family.</span></div>
+    <div class="band"><b id="c-head">I am autistic and non-verbal.</b><span id="c-sub"></span></div>
     <h1 id="c-name"></h1>
     <div id="c-calls" style="display:flex;flex-direction:column;gap:8px"></div>
-    <div class="card"><strong>How to help me</strong><ul id="c-tips"></ul></div>
-    <p class="muted">If you can't reach anyone, call 911 and say: "I found a non-verbal autistic child." This card was made with Project Hydro-Shield from Give Kids A Voice.</p>
+    <div class="card"><strong id="c-howto"></strong><ul id="c-tips"></ul></div>
+    <p class="muted" id="c-911"></p>
   </section>
 
   <!-- Parents make the card here -->
   <section id="make" hidden>
-    <h1>Make an "If found" card</h1>
-    <p class="muted">Fill this in, then write the link to a $1 NFC sticker on your child's shoe tag or bracelet. Anyone who taps it with a phone sees the card. Nothing is stored on any server: everything lives inside the link itself, so update the sticker if your numbers change.</p>
+    <h1 data-i18n="m_h1">Make an "If found" card</h1>
+    <p class="muted" data-i18n="m_intro">Fill this in, then write the link to a $1 NFC sticker on your child's shoe tag or bracelet. Anyone who taps it with a phone sees the card. Nothing is stored on any server: everything lives inside the link itself, so update the sticker if your numbers change.</p>
     <form id="f" class="card">
-      <label for="n">Child's first name<input id="n" required value="Robert"></label>
-      <label for="h">Top line<input id="h" value="I am autistic and non-verbal."></label>
-      <label for="p1">Phone 1 (name, number)<input id="p1" placeholder="Mom, (813) 555-0100"></label>
-      <label for="p2">Phone 2 (name, number)<input id="p2" placeholder="Mark, (813) 555-0101"></label>
-      <label for="t">How to help (one per line)<textarea id="t">Speak calmly and simply. Don't touch me suddenly.
+      <label for="n"><span data-i18n="m_n">Child's first name</span><input id="n" required placeholder="e.g. Sam" data-i18n-attr="placeholder:m_n_ph"></label>
+      <label for="h"><span data-i18n="m_h">Top line</span><input id="h" value="I am autistic and non-verbal."></label>
+      <label for="p1"><span data-i18n="m_p1">Phone 1 (name, number)</span><input id="p1" placeholder="Mom, (555) 555-0100" data-i18n-attr="placeholder:m_p1_ph"></label>
+      <label for="p2"><span data-i18n="m_p2">Phone 2 (name, number)</span><input id="p2" placeholder="Dad, (555) 555-0101" data-i18n-attr="placeholder:m_p2_ph"></label>
+      <label for="t"><span data-i18n="m_t">How to help (one per line)</span><textarea id="t">Speak calmly and simply. Don't touch me suddenly.
 I'm drawn to water. Keep me away from pools and ponds.
 I may flap, hum or run. That's how I calm down.</textarea></label>
-      <button type="submit">Make my link</button>
+      <button type="submit" data-i18n="m_go">Make my link</button>
     </form>
     <div id="out" class="card" hidden>
       <p class="muted" id="len"></p>
-      <strong>Full card (your own tips)</strong><code id="link"></code>
-      <button type="button" id="copy">Copy full link</button>
-      <a id="preview" href="#">Preview the full card</a>
-      <strong>Compact card (name and phones, standard tips)</strong><code id="link2"></code>
-      <button type="button" id="copy2">Copy compact link</button>
-      <a id="preview2" href="#">Preview the compact card</a>
-      <p class="muted">To write it: install a free NFC writer app (e.g. "NFC Tools"), choose Write → Add a record → URL, paste the link, and hold your phone to the sticker.</p>
+      <strong data-i18n="o_full">Full card (your own tips)</strong><code id="link"></code>
+      <button type="button" id="copy" data-i18n="o_copy">Copy full link</button>
+      <a id="preview" href="#" data-i18n="o_prev">Preview the full card</a>
+      <strong data-i18n="o_compact">Compact card (name and phones, standard tips)</strong><code id="link2"></code>
+      <button type="button" id="copy2" data-i18n="o_copy2">Copy compact link</button>
+      <a id="preview2" href="#" data-i18n="o_prev2">Preview the compact card</a>
+      <p class="muted" data-i18n="o_nfc">To write it: install a free NFC writer app (e.g. "NFC Tools"), choose Write → Add a record → URL, paste the link, and hold your phone to the sticker.</p>
     </div>
   </section>
 </div>
 <script>
 (function () {
+  // Language: ?lang=es|en, else the choice remembered on this device (shared with the map), else the phone's language.
+  // A stranger who taps the tag sees the fixed text in their own phone's language; what the family typed stays as typed,
+  // except our standard lines, which are shown in the viewer's language.
+  var LANG = (function () {
+    var q = null, l = null;
+    try { q = new URLSearchParams(location.search).get('lang'); } catch (e) {}
+    if (q === 'es' || q === 'en') { try { localStorage.setItem('hs-lang', q); } catch (e) {} return q; }
+    try { l = localStorage.getItem('hs-lang'); } catch (e) {}
+    if (l === 'es' || l === 'en') return l;
+    return /^es\b/i.test(navigator.language || '') ? 'es' : 'en';
+  })();
+  var ES = {
+    sub: 'Puede que no responda, que no le mire a los ojos o que no venga cuando me llamen. Por favor, quédese conmigo y llame a mi familia.',
+    howto: 'Cómo ayudarme',
+    c911: 'Si no puede comunicarse con nadie, llame al 911 y diga: "Encontré a un niño autista que no habla." Esta tarjeta se hizo con Project Hydro-Shield de Give Kids A Voice.',
+    name: 'Me llamo {n}.', title: 'Si me encuentra: {n}', call: 'Llamar a {who}', callfam: 'Llamar a mi familia',
+    m_h1: 'Haga una tarjeta "Si me encuentra"',
+    m_intro: 'Llénela y luego grabe el enlace en una etiqueta NFC de $1 en el zapato o la pulsera de su hijo. Quien la toque con un teléfono verá la tarjeta. No se guarda nada en ningún servidor: todo va dentro del enlace, así que actualice la etiqueta si cambian sus números.',
+    m_n: 'Nombre del niño', m_n_ph: 'p. ej. Sam', m_h: 'Primera línea',
+    m_p1: 'Teléfono 1 (nombre, número)', m_p1_ph: 'Mamá, (555) 555-0100', m_p2: 'Teléfono 2 (nombre, número)', m_p2_ph: 'Papá, (555) 555-0101',
+    m_t: 'Cómo ayudar (uno por línea)', m_go: 'Crear mi enlace',
+    o_full: 'Tarjeta completa (sus propios consejos)', o_copy: 'Copiar enlace completo', o_prev: 'Ver la tarjeta completa',
+    o_compact: 'Tarjeta compacta (nombre y teléfonos, consejos estándar)', o_copy2: 'Copiar enlace compacto', o_prev2: 'Ver la tarjeta compacta',
+    o_nfc: 'Para grabarla: instale una app gratis para escribir NFC (por ejemplo, "NFC Tools"), elija Escribir → Añadir un registro → URL/URI, pegue el enlace y acerque el teléfono a la etiqueta.',
+    copied: 'Copiado',
+    len: 'Tarjeta completa: {a} caracteres (necesita una etiqueta NTAG215 o NTAG216). Compacta: {b} caracteres',
+    fits: ' (cabe en cualquier etiqueta NFC, incluso NTAG213).', toolong: ' (demasiado larga para NTAG213: acorte los nombres).'
+  };
+  var EN = {
+    sub: 'I may not answer, look at you, or come when called. Please stay with me and call my family.',
+    howto: 'How to help me',
+    c911: 'If you can\'t reach anyone, call 911 and say: "I found a non-verbal autistic child." This card was made with Project Hydro-Shield from Give Kids A Voice.',
+    name: 'My name is {n}.', title: 'If found: {n}', call: 'Call {who}', callfam: 'Call my family', copied: 'Copied',
+    len: 'Full card: {a} characters (needs an NTAG215 or NTAG216 sticker). Compact: {b} characters',
+    fits: ' (fits any NFC sticker, including NTAG213).', toolong: ' (too long for NTAG213: shorten the names).'
+  };
+  // Our standard lines, in both languages (same order), so a card shows them in the viewer's language.
+  var STD = {
+    en: ['I am autistic and non-verbal.', "Speak calmly and simply. Don't touch me suddenly.", "I'm drawn to water. Keep me away from pools and ponds.", "I may flap, hum or run. That's how I calm down.", 'Stay with me until my family or police arrive.', 'Family'],
+    es: ['Soy autista y no hablo.', 'Hábleme con calma y con palabras sencillas. No me toque de repente.', 'Me atrae el agua. Manténgame lejos de piscinas y estanques.', 'Puede que aletee con las manos, tararee o corra. Así es como me calmo.', 'Quédese conmigo hasta que llegue mi familia o la policía.', 'Familia']
+  };
+  function T(k, v) { var o = (LANG === 'es' ? ES : EN)[k] || k; if (v) o = o.replace(/\{(\w+)\}/g, function (m, x) { return v[x] != null ? v[x] : m; }); return o; }
+  function std(line) { // a standard line in the viewer's language; anything else unchanged
+    var other = LANG === 'es' ? 'en' : 'es', i = STD[other].indexOf(line);
+    return i >= 0 ? STD[LANG][i] : line;
+  }
+  var DEFAULT_TIPS = { en: [STD.en[1], STD.en[2], STD.en[3]].join('\n'), es: [STD.es[1], STD.es[2], STD.es[3]].join('\n') };
+  var TIPS = [STD.en[1], STD.en[2], STD.en[4]];   // the compact card's tips, shown via std()
+
   function enc(o) { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
   function dec(s) { s = s.replace(/-/g, '+').replace(/_/g, '/'); return JSON.parse(decodeURIComponent(escape(atob(s)))); }
   var $ = function (q) { return document.querySelector(q); };
-  function phone(line) { var m = (line || '').split(','); var num = (m.slice(1).join(',') || m[0]).trim(); return { who: m.length > 1 ? m[0].trim() : 'Call my family', num: num, tel: num.replace(/[^\d+]/g, '') }; }
+  // "Name, number" -> who + number. No name: who is '' (shown as "Call my family").
+  function phone(line) { var m = (line || '').split(','); var num = (m.slice(1).join(',') || m[0]).trim(); return { who: m.length > 1 ? m[0].trim() : '', num: num, tel: num.replace(/[^\d+]/g, '') }; }
+
+  function applyText() {
+    document.documentElement.lang = LANG;
+    $('#lang').textContent = LANG === 'es' ? 'English' : 'Español'; $('#lang').lang = LANG === 'es' ? 'en' : 'es';
+    document.querySelectorAll('[data-i18n]').forEach(function (el) {
+      var k = el.getAttribute('data-i18n'); if (el._en == null) el._en = el.innerHTML;
+      el.innerHTML = LANG === 'es' && ES[k] ? ES[k] : el._en;
+    });
+    document.querySelectorAll('[data-i18n-attr]').forEach(function (el) {
+      el._enA = el._enA || {};
+      el.getAttribute('data-i18n-attr').split(';').forEach(function (pair) {
+        var p = pair.split(':'), a = p[0], k = p[1]; if (!(a in el._enA)) el._enA[a] = el.getAttribute(a);
+        el.setAttribute(a, LANG === 'es' && ES[k] ? ES[k] : el._enA[a]);
+      });
+    });
+  }
+
+  var shown = null;
   function show(d) {
-    try { navigator.sendBeacon('https://givekidsavoice.org/wp-json/hydroshield/v1/hit?e=card'); } catch (_) {}
-    $('#card').hidden = false; document.title = 'If found: ' + d.n;
-    $('#c-head').textContent = d.h || 'I am autistic and non-verbal.';
-    $('#c-name').textContent = 'My name is ' + d.n + '.';
+    shown = d;
+    $('#card').hidden = false; document.title = T('title', { n: d.n });
+    $('#c-head').textContent = std(d.h || STD.en[0]);
+    $('#c-sub').textContent = T('sub'); $('#c-howto').textContent = T('howto'); $('#c-911').textContent = T('c911');
+    $('#c-name').textContent = T('name', { n: d.n });
+    $('#c-calls').innerHTML = ''; $('#c-tips').innerHTML = '';
     (d.p || []).filter(Boolean).forEach(function (l) {
       var p = phone(l); if (!p.tel) return;
+      var who = p.who === 'Family' || p.who === 'Familia' || p.who === 'Call my family' ? '' : p.who;
       var a = document.createElement('a'); a.className = 'call'; a.href = 'tel:' + p.tel;
-      a.innerHTML = '<span></span><span></span>'; a.children[0].textContent = 'Call ' + p.who; a.children[1].textContent = p.num;
+      a.innerHTML = '<span></span><span></span>'; a.children[0].textContent = who ? T('call', { who: who }) : T('callfam'); a.children[1].textContent = p.num;
       $('#c-calls').appendChild(a);
     });
-    (d.t || []).filter(Boolean).forEach(function (t) { var li = document.createElement('li'); li.textContent = t; $('#c-tips').appendChild(li); });
+    (d.t || []).filter(Boolean).forEach(function (t) { var li = document.createElement('li'); li.textContent = std(t); $('#c-tips').appendChild(li); });
   }
-  var TIPS = ["Speak calmly and simply. Don't touch me suddenly.", "I'm drawn to water. Keep me away from pools and ponds.", "Stay with me until my family or police arrive."];
   function decCompact(s) {
     var a = decodeURIComponent(s).split('|'), p = [];
     for (var i = 1; i + 1 < a.length; i += 2) p.push(a[i] + ', ' + a[i + 1].replace(/^(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3'));
     return { n: a[0], p: p, t: TIPS };
   }
+
+  // Language button: the card redraws; on the form, the standard top line and tips switch too unless the family edited them.
+  $('#lang').onclick = function () {
+    var from = LANG; LANG = LANG === 'es' ? 'en' : 'es'; try { localStorage.setItem('hs-lang', LANG); } catch (e) {}
+    applyText();
+    if (shown) { show(shown); return; }
+    if ($('#h').value === STD[from][0]) $('#h').value = STD[LANG][0];
+    if ($('#t').value.trim() === DEFAULT_TIPS[from]) $('#t').value = DEFAULT_TIPS[LANG];
+    if (!$('#out').hidden) $('#f').requestSubmit();
+  };
+  applyText();
+
   var h = location.hash.slice(1);
-  if (h) { try { show(h[0] === '!' ? decCompact(h.slice(1)) : dec(h)); return; } catch (e) {} }
+  if (h) {
+    try { show(h[0] === '!' ? decCompact(h.slice(1)) : dec(h)); } catch (e) { shown = null; }
+    if (shown) { try { navigator.sendBeacon('https://givekidsavoice.org/wp-json/hydroshield/v1/hit?e=card'); } catch (_) {} return; }
+  }
   $('#make').hidden = false;
+  if (LANG === 'es') { $('#h').value = STD.es[0]; $('#t').value = DEFAULT_TIPS.es; }
   $('#f').addEventListener('submit', function (e) {
     e.preventDefault();
     var d = { n: $('#n').value.trim(), h: $('#h').value.trim(), p: [$('#p1').value.trim(), $('#p2').value.trim()].filter(Boolean), t: $('#t').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean) };
-    var base = location.href.split('#')[0];
+    // The card link carries no ?lang, so whoever taps the tag sees it in their own phone's language.
+    var base = location.origin + location.pathname;
     var full = base + '#' + enc(d);
-    var compact = base + '#!' + [d.n].concat(d.p.reduce(function (acc, l) { var x = phone(l); return acc.concat([x.who === 'Call my family' ? 'Family' : x.who, x.tel]); }, []))
+    var compact = base + '#!' + [d.n].concat(d.p.reduce(function (acc, l) { var x = phone(l); return acc.concat([x.who || 'Family', x.tel]); }, []))
       .map(function (v) { return encodeURIComponent(v).replace(/%20/g, ' ').replace(/ /g, '%20'); }).join('|');
     var fitsSmall = compact.replace(/^https:\/\//, '').length <= 130;
     $('#link').textContent = full; $('#link2').textContent = compact; $('#preview').href = full; $('#preview2').href = compact;
-    $('#len').textContent = 'Full card: ' + full.length + ' characters (needs an NTAG215 or NTAG216 sticker). Compact: ' + compact.length + ' characters' + (fitsSmall ? ' (fits any NFC sticker, including NTAG213).' : ' (too long for NTAG213: shorten the names).');
+    $('#len').textContent = T('len', { a: full.length, b: compact.length }) + T(fitsSmall ? 'fits' : 'toolong');
     $('#out').hidden = false;
   });
   ['#preview', '#preview2'].forEach(function (id) { $(id).addEventListener('click', function (e) { e.preventDefault(); location.href = this.href; location.reload(); }); });
-  $('#copy2').addEventListener('click', function () { var t = $('#link2').textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { $('#copy2').textContent = 'Copied'; }).catch(function () {}); });
+  $('#copy2').addEventListener('click', function () { var t = $('#link2').textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { $('#copy2').textContent = T('copied'); }).catch(function () {}); });
   $('#copy').addEventListener('click', function () {
     var t = $('#link').textContent;
-    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { $('#copy').textContent = 'Copied'; })
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { $('#copy').textContent = T('copied'); })
       .catch(function () { var r = document.createRange(); r.selectNodeContents($('#link')); var s = getSelection(); s.removeAllRanges(); s.addRange(r); });
   });
 })();
