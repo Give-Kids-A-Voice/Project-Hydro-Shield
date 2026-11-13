@@ -184,7 +184,7 @@ I may flap, hum or run. That's how I calm down.</textarea></label>
   var h = location.hash.slice(1);
   if (h) {
     try { show(h[0] === '!' ? decCompact(h.slice(1)) : dec(h)); } catch (e) { shown = null; }
-    if (shown) { try { navigator.sendBeacon('https://givekidsavoice.org/wp-json/hydroshield/v1/hit?e=card'); } catch (_) {} return; }
+    if (shown) { try { navigator.sendBeacon('https://givekidsavoice.org/wp-content/plugins/hydroshield-stats/hit.php?e=card'); } catch (_) {} return; }
   }
   $('#make').hidden = false;
   if (LANG === 'es') { $('#h').value = STD.es[0]; $('#t').value = DEFAULT_TIPS.es; }
