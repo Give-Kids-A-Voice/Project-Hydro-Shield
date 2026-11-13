@@ -130,7 +130,7 @@ footer a{color:var(--water)}
   </section>
 
   <footer>
-    <span data-i18n="credits">Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>, the Alachua, Brevard, Charlotte, Citrus, Collier, Duval, Hernando, Indian River, Lake, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns, St. Lucie and Volusia County Property Appraisers, Lee County GIS, and Florida Department of Revenue parcel locations (public records). Southern California water: OpenStreetMap contributors. San Diego County pool records: <a href="https://www.sangis.org/" target="_blank" rel="noopener">SanGIS</a>/SANDAG regional parcel data (San Diego County Assessor). Riverside County pool records: Riverside County Assessor open data (CREST property characteristics and parcels). Pasadena pool records: City of Pasadena land base parcel data (Los Angeles County Assessor). Contra Costa County pool records: Contra Costa County Department of Information Technology assessor parcel data. San Joaquin County pool records: San Joaquin County Assessor parcel data. Solano County pool records: Solano County public parcel data. Other Southern California pools: OpenStreetMap contributors (partial coverage). Water for every other state in the lower 48 and Washington, D.C.: OpenStreetMap contributors. Maricopa County pool records: Maricopa County Enterprise GIS parcel data. Clark County pool records: Clark County Assessor residential data and parcel map, as republished by the City of Las Vegas Office of GIS. Harris County pool records: Harris Central Appraisal District. Tarrant County pool records: Tarrant Appraisal District. Dallas County pool records: Dallas Central Appraisal District. Collin County pool records: Collin Central Appraisal District. Williamson County pool records: Williamson Central Appraisal District open data. Washoe County pool records: Washoe County Assessor public data. Street map by <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> (OpenMapTiles, OpenStreetMap data). Address search and satellite imagery by Esri; address search fallback by Nominatim. Weather radar: NOAA NEXRAD, via the Iowa Environmental Mesonet at Iowa State University. Aerial pool estimates: derived from USDA NAIP imagery.</span>
+    <span data-i18n="credits">Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>, the Alachua, Brevard, Charlotte, Citrus, Collier, Duval, Hernando, Indian River, Lake, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns, St. Lucie and Volusia County Property Appraisers, Lee County GIS, and Florida Department of Revenue parcel locations (public records). Southern California water: OpenStreetMap contributors. San Diego County pool records: <a href="https://www.sangis.org/" target="_blank" rel="noopener">SanGIS</a>/SANDAG regional parcel data (San Diego County Assessor). Riverside County pool records: Riverside County Assessor open data (CREST property characteristics and parcels). Pasadena pool records: City of Pasadena land base parcel data (Los Angeles County Assessor). Contra Costa County pool records: Contra Costa County Department of Information Technology assessor parcel data. San Joaquin County pool records: San Joaquin County Assessor parcel data. Solano County pool records: Solano County public parcel data. Other Southern California pools: OpenStreetMap contributors (partial coverage). Water for every other state in the lower 48 and Washington, D.C.: OpenStreetMap contributors. Maricopa County pool records: Maricopa County Enterprise GIS parcel data. Clark County pool records: Clark County Assessor residential data and parcel map, as republished by the City of Las Vegas Office of GIS. Harris County pool records: Harris Central Appraisal District. Tarrant County pool records: Tarrant Appraisal District. Dallas County pool records: Dallas Central Appraisal District. Collin County pool records: Collin Central Appraisal District. Williamson County pool records: Williamson Central Appraisal District open data. Washoe County pool records: Washoe County Assessor public data. Street map by <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> (OpenMapTiles, OpenStreetMap data). Address search and satellite imagery by Esri; address search backups by the U.S. Census Bureau Geocoder and Nominatim. Weather radar: NOAA NEXRAD, via the Iowa Environmental Mesonet at Iowa State University. Aerial pool estimates: derived from USDA NAIP imagery.</span>
     <span data-i18n="notsub">Not a substitute for supervision, door alarms or swim lessons.</span>
     <a href="found.html" data-i18n="found">Make an "If found" card for a shoe tag</a>
     <a href="https://github.com/Give-Kids-A-Voice/Project-Hydro-Shield" target="_blank" rel="noopener" data-i18n="source">Source on GitHub</a>
@@ -238,6 +238,19 @@ var HS_PARTNER = (function () {
   var OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
   function status(t, err) { var s = $('#st'); s.textContent = t; s.className = 'status' + (err ? ' err' : ''); }
 
+  function census(q) {
+    return new Promise(function (ok) {
+      var cb = 'hsCensus' + Date.now() + Math.floor(Math.random() * 1e4), el = document.createElement('script'), done = false;
+      function finish(v) { if (done) return; done = true; window[cb] = function () {}; el.remove(); ok(v); }
+      window[cb] = function (j) {
+        var m = j && j.result && j.result.addressMatches && j.result.addressMatches[0];
+        finish(m && m.coordinates ? { lat: +m.coordinates.y, lon: +m.coordinates.x, label: m.matchedAddress } : null);
+      };
+      el.onerror = function () { finish(null); }; setTimeout(function () { finish(null); }, 8000);
+      el.src = 'https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?benchmark=Public_AR_Current&format=jsonp&callback=' + cb + '&address=' + encodeURIComponent(q);
+      document.head.appendChild(el);
+    });
+  }
   async function geocode(q) {
     // 1) Esri World Geocoder: strong on US street addresses (results not stored). 2) OpenStreetMap Nominatim as fallback.
     try {
@@ -245,6 +258,10 @@ var HS_PARTNER = (function () {
       var j = await r.json(), c = j.candidates && j.candidates[0];
       if (c && c.score >= 80) return { lat: c.location.y, lon: c.location.x, label: c.address };
     } catch (e) {}
+    // 2) U.S. Census Bureau geocoder: free government service for US street addresses. It has no CORS, so it is
+    //    asked by JSONP (a script tag); 8 seconds at most. Nothing is stored.
+    try { var cz = await census(q); if (cz) return cz; } catch (e) {}
+    // 3) OpenStreetMap Nominatim, last (its public server allows about one search per second for everyone).
     var r2 = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } });
     var j2 = await r2.json(); if (!j2.length) throw new Error(T('We could not find that address. Check the spelling, or click your home on the map instead.'));
     return { lat: +j2[0].lat, lon: +j2[0].lon, label: j2[0].display_name };
