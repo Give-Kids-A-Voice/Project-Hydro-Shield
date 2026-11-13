@@ -99,7 +99,6 @@ footer a{color:var(--water)}
     <select id="rad" aria-label="Search radius" data-i18n-attr="aria-label:rad_al"><option value="300">300 m</option><option value="500" selected>500 m</option><option value="800">800 m</option><option value="1200">1.2 km</option></select>
     <button type="submit" data-i18n="go">Map the water</button>
     <button type="button" id="gps" hidden data-i18n="gps">Use my location</button>
-    <button type="button" class="ghost" id="here" data-i18n="here">Use map center</button>
     <button type="button" class="ghost" id="install" hidden data-i18n="install">Install app</button>
     <button type="button" class="ghost" id="mark" aria-pressed="false" data-i18n="mark">+ Mark water I know about</button>
     <button type="button" class="ghost" id="share" hidden title="Copy a link that opens Hydro-Shield on this address" data-i18n="share" data-i18n-attr="title:share_t">Copy link</button>
@@ -483,13 +482,14 @@ var HS_PARTNER = (function () {
   openHash();
   // A link pasted into a tab that already has the map open only changes the part after '#', which doesn't reload the page.
   window.addEventListener('hashchange', openHash);
-  $('#here').onclick = function () { $('#share').hidden = true; var c = map.getCenter(); run({ lat: c.lat, lon: c.lng, label: 'the map center' }); };
   // Wait briefly so a double-click (zoom) doesn't also count as "search here"
   var clickTimer = null;
   map.on('dblclick', function () { clearTimeout(clickTimer); clickTimer = null; });
   map.on('click', function (ev) { clearTimeout(clickTimer); clickTimer = setTimeout(function () { onMapClick(ev); }, 300); });
   function onMapClick(e) {
     if (!marking) {
+      // Zoomed far out, a tap can't land on one home (and open sea has no water tiles, which stalls the search): zoom in instead.
+      if (map.getZoom() < 13) { map.setView(e.latlng, Math.min(Math.max(map.getZoom() + 4, 13), 16)); status(T('Zoom in until you can see the streets, then tap the home.')); return; }
       var pt = { lat: e.latlng.lat, lon: e.latlng.lng, label: 'the point you clicked' };
       $('#addr').value = T('Point on map ({lat}, {lon})', { lat: pt.lat.toFixed(5), lon: pt.lon.toFixed(5) });
       $('#share').hidden = true; run(pt);
