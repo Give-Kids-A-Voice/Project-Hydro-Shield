@@ -38,14 +38,20 @@ def load_models():
     return gbm, nets
 
 
+def proj(f):
+    """An item's projection: 'proj:epsg' in older NAIP records, 'proj:code' ("EPSG:26916") in newer ones such as 2025."""
+    p = f['properties']
+    return p['proj:epsg'] if 'proj:epsg' in p else int(str(p['proj:code']).split(':')[-1])
+
+
 def mosaic(bb, year, items):
     """Windows of every NAIP item (of the most common projection) that overlaps bb."""
     fs = [f for f in items if f['bbox'][0] < bb[2] and f['bbox'][2] > bb[0] and f['bbox'][1] < bb[3] and f['bbox'][3] > bb[1]]
     if not fs: return []
-    epsg = Counter(f['properties']['proj:epsg'] for f in fs).most_common(1)[0][0]
+    epsg = Counter(proj(f) for f in fs).most_common(1)[0][0]
     out = []
     for f in fs:
-        if f['properties']['proj:epsg'] != epsg: continue
+        if proj(f) != epsg: continue
         a, tr, crs, res = naip.read(f, bb)
         if a.size == 0 or a.shape[1] < 50 or a.shape[2] < 50: continue
         if res < 0.45:
