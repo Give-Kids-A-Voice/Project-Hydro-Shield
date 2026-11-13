@@ -22,6 +22,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
 <style>
 /* Layout: a field survey sheet. Address bar on top, map and the ranked hazard list side by side, nearest water first. */
 :root{
@@ -129,7 +130,7 @@ footer a{color:var(--water)}
   </section>
 
   <footer>
-    <span data-i18n="credits">Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>, the Alachua, Brevard, Charlotte, Citrus, Collier, Duval, Hernando, Indian River, Lake, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns, St. Lucie and Volusia County Property Appraisers, Lee County GIS, and Florida Department of Revenue parcel locations (public records). Southern California water: OpenStreetMap contributors. San Diego County pool records: <a href="https://www.sangis.org/" target="_blank" rel="noopener">SanGIS</a>/SANDAG regional parcel data (San Diego County Assessor). Riverside County pool records: Riverside County Assessor open data (CREST property characteristics and parcels). Pasadena pool records: City of Pasadena land base parcel data (Los Angeles County Assessor). Contra Costa County pool records: Contra Costa County Department of Information Technology assessor parcel data. San Joaquin County pool records: San Joaquin County Assessor parcel data. Solano County pool records: Solano County public parcel data. Other Southern California pools: OpenStreetMap contributors (partial coverage). Water for every other state in the lower 48 and Washington, D.C.: OpenStreetMap contributors. Maricopa County pool records: Maricopa County Enterprise GIS parcel data. Clark County pool records: Clark County Assessor residential data and parcel map, as republished by the City of Las Vegas Office of GIS. Harris County pool records: Harris Central Appraisal District. Tarrant County pool records: Tarrant Appraisal District. Dallas County pool records: Dallas Central Appraisal District. Collin County pool records: Collin Central Appraisal District. Williamson County pool records: Williamson Central Appraisal District open data. Washoe County pool records: Washoe County Assessor public data. Address search and satellite imagery by Esri; address search fallback by Nominatim. Weather radar: NOAA NEXRAD, via the Iowa Environmental Mesonet at Iowa State University. Aerial pool estimates: derived from USDA NAIP imagery.</span>
+    <span data-i18n="credits">Water data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, via Overpass. Pool records courtesy of the <a href="https://www.hcpafl.org/" target="_blank" rel="noopener">Hillsborough County Property Appraiser</a>, the Alachua, Brevard, Charlotte, Citrus, Collier, Duval, Hernando, Indian River, Lake, Leon, Manatee, Marion, Martin, Orange, Osceola, Pasco, Pinellas, Polk, Sarasota, Seminole, St. Johns, St. Lucie and Volusia County Property Appraisers, Lee County GIS, and Florida Department of Revenue parcel locations (public records). Southern California water: OpenStreetMap contributors. San Diego County pool records: <a href="https://www.sangis.org/" target="_blank" rel="noopener">SanGIS</a>/SANDAG regional parcel data (San Diego County Assessor). Riverside County pool records: Riverside County Assessor open data (CREST property characteristics and parcels). Pasadena pool records: City of Pasadena land base parcel data (Los Angeles County Assessor). Contra Costa County pool records: Contra Costa County Department of Information Technology assessor parcel data. San Joaquin County pool records: San Joaquin County Assessor parcel data. Solano County pool records: Solano County public parcel data. Other Southern California pools: OpenStreetMap contributors (partial coverage). Water for every other state in the lower 48 and Washington, D.C.: OpenStreetMap contributors. Maricopa County pool records: Maricopa County Enterprise GIS parcel data. Clark County pool records: Clark County Assessor residential data and parcel map, as republished by the City of Las Vegas Office of GIS. Harris County pool records: Harris Central Appraisal District. Tarrant County pool records: Tarrant Appraisal District. Dallas County pool records: Dallas Central Appraisal District. Collin County pool records: Collin Central Appraisal District. Williamson County pool records: Williamson Central Appraisal District open data. Washoe County pool records: Washoe County Assessor public data. Street map by <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> (OpenMapTiles, OpenStreetMap data). Address search and satellite imagery by Esri; address search fallback by Nominatim. Weather radar: NOAA NEXRAD, via the Iowa Environmental Mesonet at Iowa State University. Aerial pool estimates: derived from USDA NAIP imagery.</span>
     <span data-i18n="notsub">Not a substitute for supervision, door alarms or swim lessons.</span>
     <a href="found.html" data-i18n="found">Make an "If found" card for a shoe tag</a>
     <a href="https://github.com/Give-Kids-A-Voice/Project-Hydro-Shield" target="_blank" rel="noopener" data-i18n="source">Source on GitHub</a>
@@ -137,6 +138,8 @@ footer a{color:var(--water)}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+<script src="vendor/leaflet-maplibre-gl.js"></script>
 <script src="hazards.js"></script>
 <script src="i18n.js"></script>
 <script>
@@ -171,7 +174,7 @@ var HS_PARTNER = (function () {
   var css = getComputedStyle(document.documentElement);
   var C = function (n) { return css.getPropertyValue(n).trim(); };
   // Opens on all of Florida. No location is ever requested from the visitor.
-  var map = L.map('map', { zoomControl: true }).setView(HS_PARTNER ? HS_PARTNER.center : [27.9, -83.2], HS_PARTNER ? HS_PARTNER.zoom : 7);
+  var map = L.map('map', { zoomControl: true, maxZoom: 19 }).setView(HS_PARTNER ? HS_PARTNER.center : [27.9, -83.2], HS_PARTNER ? HS_PARTNER.zoom : 7);
   // Fixed text in the visitor's language (i18n.js), then the county edition's own lines on top.
   function pageText() {
     hsApplyLang();
@@ -186,7 +189,30 @@ var HS_PARTNER = (function () {
     }
   }
   pageText();
-  var streets = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  // Street map: OpenFreeMap (free, no limits, no keys or cookies; OpenStreetMap data drawn on the device). It needs WebGL.
+  // If the device can't draw it, or it hasn't loaded within 10 seconds, or it errors, switch quietly to
+  // OpenStreetMap's own tiles, which are only meant for light use, so they stay the backup.
+  var OSM_ATTR = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+  function osmTiles() { return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: OSM_ATTR }); }
+  function hasWebGL() { try { var c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) { return false; } }
+  var streets = null;
+  if (window.maplibregl && L.maplibreGL && hasWebGL()) {
+    try {
+      streets = L.maplibreGL({ style: 'https://tiles.openfreemap.org/styles/liberty', maxZoom: 19,
+        attribution: '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a>, data ' + OSM_ATTR });
+      streets.addTo(map);
+      var gl = streets.getMaplibreMap(), glOk = false;
+      var toBackup = function () {
+        if (glOk || !streets || streets instanceof L.TileLayer) return;
+        var on = map.hasLayer(streets); try { map.removeLayer(streets); } catch (e) {}
+        streets = osmTiles(); if (on) streets.addTo(map); if (typeof layerControl === 'function' && layersCtl) layerControl();
+      };
+      gl.once('load', function () { glOk = true; });
+      gl.on('error', function (e) { if (!glOk) toBackup(); });
+      setTimeout(toBackup, 10000);
+    } catch (e) { streets = null; }
+  }
+  if (!streets) streets = osmTiles().addTo(map);
   var satellite = L.layerGroup([
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Imagery © Esri, Maxar, Earthstar Geographics' }),
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, opacity: .8 })
