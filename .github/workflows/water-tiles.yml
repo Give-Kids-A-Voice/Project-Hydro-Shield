@@ -25,7 +25,8 @@ name: Build water tiles and publish site
 #   Day 10 Ohio + West Virginia  Day 12 Michigan + Maine  Day 14 New Jersey + Connecticut + Delaware
 #   Day 16 Virginia + Maryland + Washington DC  Day 18 Washington + Oregon + Idaho  Day 20 Massachusetts + Indiana + New Hampshire
 #   Day 22 Missouri + Kansas + Vermont  Day 24 Wisconsin + Iowa + Rhode Island  Day 26 Colorado + New Mexico
-#   Day 28 Minnesota + Kentucky + Arkansas      (every state in the lower 48 plus DC; Alaska and Hawaii use live Overpass)
+#   Day 28 Minnesota + Kentucky + Arkansas      (every state in the lower 48 plus DC)
+#   Day 2 also Hawaii   Day 6 also Alaska (populated areas only; the rest of Alaska uses live Overpass)
 # These run beside the main job, so they add no time to the busiest day's build. Tiles the older per-region builds above
 # already have (Florida, Southern California, Maricopa, Clark, the four Texas counties) keep their OpenStreetMap water from
 # data/water; only the USGS creeks from the whole-state build are added there (Florida's whole-state job, Day 1, exists for that).
@@ -112,6 +113,9 @@ jobs:
           - { st: nh, slug: new-hampshire, day: 20, nhd: New_Hampshire }
           - { st: vt, slug: vermont, day: 22, nhd: Vermont }
           - { st: ri, slug: rhode-island, day: 24, nhd: Rhode_Island }
+          - { st: hi, slug: hawaii, day: 2, nhd: Hawaii }
+          # Alaska: populated areas only (scripts/clip/alaska.geojson), no USGS fill; the whole state would not fit the Pages limit.
+          - { st: ak, slug: alaska, day: 6, nhd: '', clip: scripts/clip/alaska.geojson }
     steps:
       - name: Decide
         id: s
@@ -145,6 +149,8 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
           pip install -q osmium shapely
           curl -sSfL --retry 3 -o state.osm.pbf https://download.geofabrik.de/north-america/us/${{ matrix.slug }}-latest.osm.pbf
+          # A state with a clip area (Alaska) keeps only the water inside it.
+          if [ -n "${{ matrix.clip }}" ]; then osmium extract -p "${{ matrix.clip }}" state.osm.pbf -o clipped.osm.pbf && mv clipped.osm.pbf state.osm.pbf; fi
           # Same water tags as Florida; pools of any kind (they become single points in the export)
           osmium tags-filter state.osm.pbf \
             nwr/natural=water nwr/landuse=basin,reservoir nwr/leisure=swimming_pool \
