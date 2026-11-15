@@ -79,3 +79,12 @@ For the Cloudflare-blocked counties (Brevard, St. Lucie, Clay, Indian River, Col
 
 ### To merge
 Review `counties-next` (one commit on top of main: 0bd0667), then fast-forward main to it. The deploy workflow will run. After it finishes, re-check the reference addresses and one new-county address, such as Port Charlotte, FL.
+
+### 4. Rural county check (Nov 14, 2026): 34 counties without county pool data so far
+Checked for a free, public, bulk download with a pool or extra-feature field (no emailing, no per-parcel scraping).
+- **Free data, but no pool field:** Putnam (`paDataPackage_2025.zip`: NAL, sales, owners, legal), Baker (public ArcGIS `parcels_web2`: CAMA summary only), Sumter (county GIS parcel layer: 75 fields, none for pools; the Property Appraiser has no bulk download).
+- **Per-parcel search only, no bulk file:** Schneider/GrizzlyLogic "floridapa" sites (Columbia, Suwannee, Union, Bradford, DeSoto, Lafayette) and qPublic sites (Dixie, Gilchrist, Glades, Jackson, Levy, Taylor, Flagler, Monroe).
+- **Paid only:** Nassau ($125 parcel shapefile; no pool data listed).
+- **Site blocks this network (403 or no answer):** Gadsden, Madison, Jefferson, Wakulla, Hendry, Hamilton, Calhoun, Gulf, Walton, Holmes, Washington, Highlands. Highlands reportedly offers free downloadable files on hcpao.org; worth a look from a normal browser.
+- **No data page found:** Franklin, Liberty, Hardee, Okeechobee.
+Their main towns are covered by aerial pool estimates (2025 imagery) instead.
