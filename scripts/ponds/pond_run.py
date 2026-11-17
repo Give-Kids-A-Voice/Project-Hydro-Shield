@@ -17,8 +17,9 @@ thr = float(sys.argv[sys.argv.index('--thr') + 1]) if '--thr' in sys.argv else 0
 os.makedirs(name, exist_ok=True)
 polys = bd.mapped_polys(x0, y0, x1, y1); tree = STRtree(polys) if polys else None
 
-def chunk(c):
-    cx, cy = c; bb = (cx, cy, cx + bd.STEP, cy + bd.STEP)
+def chunk(c, pad=0.0):
+    # pad > 0: re-read with a margin so ponds crossing the chunk edge get their whole outline (not a straight cut)
+    cx, cy = c; bb = (cx - pad, cy - pad, cx + bd.STEP + pad, cy + bd.STEP + pad)
     for t in range(3):
         try:
             fs = naip.items(bb, yr)
@@ -34,14 +35,18 @@ def chunk(c):
     if not bl: return []
     T = Transformer.from_crs(crs, 4326, always_xy=True)
     F = np.array([b[4] for b in bl], np.float32); P = np.array([bd.patch(a, b[2], b[3]) for b in bl], np.uint8)
-    s = score(F, P); out = []
+    s = score(F, P); out = []; edge = False
     for (L, area, py, px, f), sc in zip(bl, s):
         if sc < thr: continue
         X, Y = tr * (px + 0.5, py + 0.5); lo, la = T.transform(X, Y)
         if not (cx <= lo < cx + bd.STEP and cy <= la < cy + bd.STEP): continue
         rad = math.sqrt(area / math.pi) / 111000
         if tree is not None and len(tree.query(Point(lo, la).buffer(30 / 111000 + rad), predicate='intersects')): continue
-        bm = lab == L; R_, G_, B_ = (float(a[i][bm].mean()) for i in range(3))
+        bm = lab == L
+        if bm[0].any() or bm[-1].any() or bm[:, 0].any() or bm[:, -1].any():
+            if pad == 0: edge = True; continue
+            continue  # still clipped by the image edge even with the margin (huge lake or scene edge): skip
+        R_, G_, B_ = (float(a[i][bm].mean()) for i in range(3))
         if G_ >= 105: continue  # artificial turf: bright green, dark in near-infrared like water
         m = np.pad(bm, 1)
         cs = measure.find_contours(m.astype(np.uint8), 0.5)
@@ -52,6 +57,7 @@ def chunk(c):
         if pg.is_empty or pg.geom_type != 'Polygon': continue
         outl = [[round(q[1], 6), round(q[0], 6)] for q in pg.exterior.coords]
         out.append([round(la, 6), round(lo, 6), round(area), round(float(sc), 3), outl, [round(R_), round(G_), round(B_)]])
+    if edge and pad == 0: return chunk(c, 0.003)
     return out
 
 done = set(); outf = name + '/chunks.jsonl'
