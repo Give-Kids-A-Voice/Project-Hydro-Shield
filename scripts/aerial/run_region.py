@@ -106,14 +106,18 @@ def write_tiles(pools_dir, bbox, det):
         inside = lambda e: bbox[0] <= e[1] < bbox[2] and bbox[1] <= e[0] < bbox[3]
         keep = [e for e in old if not (len(e) > 2 and e[2] == 'air' and inside(e))]
         known = [e for e in keep if not (len(e) > 2 and e[2] == 'air')]
-        if any(len(e) < 3 or e[2] not in ('osm', 'air') for e in known):  # county records here: no estimates
-            cty += len(by.get(k, [])); new = []
-        else:
-            kx = 111320 * math.cos(math.radians(int(k.split('_')[0]) / 20))
-            new = []
-            for d in by.get(k, []):
-                if any(math.hypot((e[0] - d[0]) * 110574, (e[1] - d[1]) * kx) < 30 for e in known): dup += 1; continue
-                new.append([round(d[0], 5), round(d[1], 5), 'air'])
+        # County records here: add only gap pools (condo, hotel, HOA common pools are often missing from county
+        # pool lists). County points sit at parcel centroids, so use a wider 60 m radius there.
+        county = any(len(e) < 3 or e[2] not in ('osm', 'air') for e in known)
+        r = 60 if county else 30
+        kx = 111320 * math.cos(math.radians(int(k.split('_')[0]) / 20))
+        new = []
+        for d in by.get(k, []):
+            if any(math.hypot((e[0] - d[0]) * 110574, (e[1] - d[1]) * kx) < r for e in known):
+                if county: cty += 1
+                else: dup += 1
+                continue
+            new.append([round(d[0], 5), round(d[1], 5), 'air'])
         out = keep + new
         if out != old:
             if out:
@@ -155,7 +159,7 @@ def main():
     if len(done) < len(chunks): sys.exit('some chunks failed; re-run to finish them before writing')
     if a.write:
         n, dup, cty = write_tiles(a.write, bbox, det)
-        print(f'wrote {n} air points; {dup} skipped as duplicates of county/OSM points; {cty} skipped in county-record tiles', file=sys.stderr)
+        print(f'wrote {n} air points; {dup} skipped as duplicates of county/OSM points; {cty} skipped as near county records (60 m)', file=sys.stderr)
 
 
 if __name__ == '__main__':
