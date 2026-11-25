@@ -1,6 +1,6 @@
 # Build docs/data/poolcheck: county pool records checked against the aerial detections (aerial-q/<tile>/chunks.jsonl).
 #  cx = 3+ county records chained within 6 m with no water seen within 25 m (condo units placed on one roof), shown as one marker.
-#  nv = county records with no pool detected within 300 m in 2023 NAIP. Shown only with ?check=1 until approved.
+#  nv = county records with no pool detected within 300 m in 2023 NAIP. On by default (approved by Mark, Nov 24 2026); ?check=0 turns it off.
 import json,math,os
 from collections import defaultdict
 Q='/home/claude/aerial-q'; P='/home/claude/project-hydro-shield/docs/data/pools'; O='/home/claude/permitcheck/out'

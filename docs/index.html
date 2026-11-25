@@ -354,7 +354,8 @@ var HS_PARTNER = (function () {
   }
 
   // County pool records, pre-cut into 0.05-degree tiles: data/pools/<lat>_<lon>.json = [[lat, lon, kind], ...]
-  var HS_CHECK = /[?&]check=1\b/.test(location.search);
+  // On by default; ?check=0 shows the raw county records (for comparison).
+  var HS_CHECK = !/[?&]check=0\b/.test(location.search);
   // Only records that still match the check file exactly (5 decimals) are changed, so a refreshed county tile is safe.
   function applyCheck(pools, ck) {
     function key(a, b) { return a.toFixed(5) + ',' + b.toFixed(5); }
