@@ -88,6 +88,10 @@ var HS_ES = {
     'Our pool': 'Nuestra piscina', 'Pool you marked': 'Piscina que usted marcó', 'Water you marked': 'Agua que usted marcó',
     'Estimated from aerial photos. May be wrong; please verify.': 'Estimada a partir de fotos aéreas. Puede estar equivocada; verifíquela, por favor.',
     'Seen in aerial photos; not on other maps. May be wrong; please verify.': 'Visto en fotos aéreas; no aparece en otros mapas. Puede estar equivocado; verifíquelo, por favor.',
+    'Pools (several county records at one building)': 'Piscinas (varios registros del condado en un mismo edificio)',
+    'Pool (county record, not seen in aerial photos)': 'Piscina (registro del condado, no vista en fotos aéreas)',
+    'Several county pool records are filed at this one building, often condo units. The pool may be elsewhere on the property; check all of it.': 'Varios registros de piscina del condado están asignados a este mismo edificio, a menudo unidades de un condominio. La piscina puede estar en otra parte de la propiedad; revísela toda.',
+    'County record, but no pool was seen nearby in 2023 aerial photos. It may be under a screen or trees, newer than the photos, or filed at an office address. Please verify.': 'Registro del condado, pero no se vio ninguna piscina cerca en las fotos aéreas de 2023. Puede estar bajo una malla o árboles, ser más nueva que las fotos o estar registrada a la dirección de una oficina. Verifíquelo, por favor.',
     'Safe with an adult nearby. Alarm still covers it alone or at night.': 'Segura con un adulto cerca. La alarma la sigue cubriendo cuando está solo o de noche.'
   }
 };

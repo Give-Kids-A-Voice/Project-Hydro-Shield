@@ -354,6 +354,20 @@ var HS_PARTNER = (function () {
   }
 
   // County pool records, pre-cut into 0.05-degree tiles: data/pools/<lat>_<lon>.json = [[lat, lon, kind], ...]
+  var HS_CHECK = /[?&]check=1\b/.test(location.search);
+  // Only records that still match the check file exactly (5 decimals) are changed, so a refreshed county tile is safe.
+  function applyCheck(pools, ck) {
+    function key(a, b) { return a.toFixed(5) + ',' + b.toFixed(5); }
+    var idx = {}, drop = {}, add = [];
+    pools.forEach(function (p, i) { if (p.length === 2) { var k = key(p[0], p[1]); (idx[k] = idx[k] || []).push(i); } });
+    ck.cx.forEach(function (c) {
+      var f = [];
+      (c[3] || []).forEach(function (q) { (idx[key(q[0], q[1])] || []).forEach(function (i) { if (!drop[i] && f.indexOf(i) < 0) f.push(i); }); });
+      if (f.length >= 3) { f.forEach(function (i) { drop[i] = 1; }); add.push([c[0], c[1], 'cx', f.length]); }
+    });
+    ck.nv.forEach(function (q) { (idx[key(q[0], q[1])] || []).forEach(function (i) { if (!drop[i]) pools[i] = [pools[i][0], pools[i][1], 'nv']; }); });
+    return pools.filter(function (p, i) { return !drop[i]; }).concat(add);
+  }
   async function countyPools(lat, lon, rad) {
     var dLat = rad / 110574, dLon = rad / (111320 * Math.cos(lat * Math.PI / 180)), keys = {}, out = [];
     for (var y = Math.floor((lat - dLat) * 20); y <= Math.floor((lat + dLat) * 20); y++)
@@ -361,6 +375,16 @@ var HS_PARTNER = (function () {
     await Promise.all(Object.keys(keys).map(function (k) {
       return fetch('data/pools/' + k + '.json').then(function (r) { return r.ok ? r.json() : []; }).then(function (a) { out = out.concat(a); }).catch(function () {});
     }));
+    // Pool check (data/poolcheck/<y>_<x>.json): county pool records checked against 2023 aerial photos.
+    //  cx: [lat, lon, n, [[lat, lon], ...]] several county records filed at one building (condo units on one roof),
+    //      shown as one marker. nv: [[lat, lon], ...] county records with no pool seen within 300 m in the photos.
+    if (HS_CHECK) {
+      var ck = { cx: [], nv: [] };
+      await Promise.all(Object.keys(keys).map(function (k) {
+        return fetch('data/poolcheck/' + k + '.json').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (j) { ck.cx = ck.cx.concat(j.cx || []); ck.nv = ck.nv.concat(j.nv || []); } }).catch(function () {});
+      }));
+      out = applyCheck(out, ck);
+    }
     return out;
   }
   // Pre-built water tiles, two formats, both built monthly from OpenStreetMap. Returns null when neither covers the area.
@@ -472,13 +496,13 @@ var HS_PARTNER = (function () {
     var air = dedupeAir(pools.filter(function (p) { return p[2] === 'air'; }), pools.filter(function (p) { return p[2] !== 'air'; }), osm.elements);
     pools = pools.filter(function (p) { return p[2] !== 'air'; });
     var els = osm.elements.slice();
-    els = els.concat(asElements(pools, { prefix: 'cp', tags: function (p) { return { leisure: 'swimming_pool', name: p[2] === 'spa' ? 'Spa / hot tub (county record)' : p[2] === 'osm' ? 'Pool (OpenStreetMap)' : 'Pool (county record)', access: 'private' }; } }));
+    els = els.concat(asElements(pools, { prefix: 'cp', tags: function (p) { return { leisure: 'swimming_pool', name: p[2] === 'spa' ? 'Spa / hot tub (county record)' : p[2] === 'osm' ? 'Pool (OpenStreetMap)' : p[2] === 'cx' ? 'Pools (several county records at one building)' : p[2] === 'nv' ? 'Pool (county record, not seen in aerial photos)' : 'Pool (county record)', access: 'private' }; } }));
     els = els.concat(asElements(air, { prefix: 'ap', tags: function () { return { leisure: 'swimming_pool', name: 'Pool (aerial estimate)', access: 'private' }; } }));
     els = els.concat(asElements(marks(), { prefix: 'mk', tags: function (p) { return p[2] === 'ours' ? { leisure: 'swimming_pool', name: 'Our pool', hs_ours: '1' } : p[2] === 'pool' ? { leisure: 'swimming_pool', name: 'Pool you marked' } : { natural: 'water', water: 'pond', name: 'Water you marked' }; } }));
     // "Our pool": the family's own pool, OK with an adult. Drop the county record it duplicates and show it last, in green.
     var ours = marks().filter(function (m) { return m[2] === 'ours'; });
     if (ours.length) els = els.filter(function (e) {
-      if (!(e.tags && (e.tags.name === 'Pool (county record)' || e.tags.name === 'Pool (OpenStreetMap)' || e.tags.name === 'Pool (aerial estimate)'))) return true;
+      if (!(e.tags && (e.tags.name === 'Pool (county record)' || e.tags.name === 'Pool (county record, not seen in aerial photos)' || e.tags.name === 'Pools (several county records at one building)' || e.tags.name === 'Pool (OpenStreetMap)' || e.tags.name === 'Pool (aerial estimate)'))) return true;
       return !ours.some(function (o) { return Math.abs(o[0] - e.lat) < 0.0003 && Math.abs(o[1] - e.lon) < 0.0003; });
     });
     var hz = HydroShield.hazards({ elements: els }, home.lat, home.lon, rad);
@@ -486,6 +510,8 @@ var HS_PARTNER = (function () {
     var seenHz = {};
     hz = hz.filter(function (h) { var k = h.name + '|' + h.kind + '|' + Math.round(h.dist / 3); if (seenHz[k]) return false; seenHz[k] = 1; return true; });
     hz.forEach(function (h) { if (h.name === 'Pool (aerial estimate)') h.kind = 'Estimated from aerial photos. May be wrong; please verify.'; });
+    hz.forEach(function (h) { if (h.name === 'Pools (several county records at one building)') h.kind = 'Several county pool records are filed at this one building, often condo units. The pool may be elsewhere on the property; check all of it.'; });
+    hz.forEach(function (h) { if (h.name === 'Pool (county record, not seen in aerial photos)') h.kind = 'County record, but no pool was seen nearby in 2023 aerial photos. It may be under a screen or trees, newer than the photos, or filed at an office address. Please verify.'; });
     hz.forEach(function (h) { if (h.name === 'Pond (aerial estimate)') h.kind = 'Seen in aerial photos; not on other maps. May be wrong; please verify.'; });
     hz.forEach(function (h) { if (/^node\/mk/.test(h.id) && h.name === 'Our pool') { h.sev = 1; h.kind = 'Safe with an adult nearby. Alarm still covers it alone or at night.'; h.ours = true; } });
     hz = hz.filter(function (h) { return !h.ours; }).concat(hz.filter(function (h) { return h.ours; }));
